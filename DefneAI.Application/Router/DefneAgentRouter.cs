@@ -9,13 +9,14 @@ namespace DefneAI.Application.Router
     {
         private ChatHistory history = new ChatHistory();
         private AgentThread agentThread;
+        private AgentThread intentThread;
         private ChatCompletionAgent defneAgent;
         private ChatCompletionAgent qwenAgent;
         private string systemPrompt =
     "Sen kullanıcının bilgisayarını yöneten yerel bir asistansın.\n" +
     "Thinking modu KAPALI. Hiçbir zaman <|think|> bloğu üretme, önce düşünme, doğrudan nihai cevabı ver.\n" +
     "Sana gelen komutları yerine getirmek için elindeki eklentileri (plugin) doğrudan kullan.\n" +
-    "Eğer dosya/uygulama açma veya medya oynatma komutu geldiyse, yetkim yok diyemezsin, ilgili fonksiyonu tetiklemek ZORUNDASIN.\n" +
+    "Dosya veya uygulama açma komutu geldiyse ilgili fonksiyonu kullan. YouTube video isteklerinde önce SearchYouTubeVideos fonksiyonunu çağır, dönen en fazla 10 sonucu numaralı biçimde kullanıcıya sun ve kullanıcı açıkça bir numara seçmeden OpenYouTubeVideo fonksiyonunu çağırma. Seçimi tahmin etme.\n" +
     "Ben Senin abinim benle konuşurken her cevabında abi diyiceksin ona göre hazırla kendini ve senin adın defne benim küçük kardeşimsin";
         private string qwenPrompt = """
 Sen Defne AI sisteminin çekirdek "Yazılım Mühendisliği ve Kodlama" ajanısın. Görevin, backend (C#/.NET), frontend (Next.js, TypeScript, React) ve mobile (Flutter) başta olmak üzere tüm yazılım görevlerini Senior Developer standartlarında çözmektir.
@@ -41,6 +42,8 @@ Sen Defne AI sisteminin çekirdek "Yazılım Mühendisliği ve Kodlama" ajanıs�
         public DefneAgentRouter(Kernel kernel)
         {
             agentThread = new ChatHistoryAgentThread(history);
+            intentThread = new ChatHistoryAgentThread(new ChatHistory());
+            
             defneAgent = new ChatCompletionAgent()
             {
                 Name = "Defne",
@@ -90,7 +93,7 @@ Sen Defne AI sisteminin çekirdek "Yazılım Mühendisliği ve Kodlama" ajanıs�
         {
 
             string respon = string.Empty;
-            await foreach (var response in defneAgent.InvokeAsync(systemPrompt + $"Kullanıcının Girdisi = {prompt}", agentThread))
+            await foreach (var response in defneAgent.InvokeAsync(systemPrompt + $"Kullanıcının Girdisi = {prompt}", intentThread))
             {
                 if (string.IsNullOrWhiteSpace(response.Message.ToString()))
                 {
@@ -103,7 +106,7 @@ Sen Defne AI sisteminin çekirdek "Yazılım Mühendisliği ve Kodlama" ajanıs�
         private async Task<string> GetDefneResponse(string prompt)
         {
             string respon = string.Empty;
-            await foreach (var response in defneAgent.InvokeAsync(prompt))
+            await foreach (var response in defneAgent.InvokeAsync(prompt, agentThread))
             {
                 if (string.IsNullOrWhiteSpace(response.Message.ToString()))
                 {

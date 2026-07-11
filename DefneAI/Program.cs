@@ -2,6 +2,12 @@
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using DefneAI.Application.Router;
+using DefneAI.Application.Repository;
+using DefneAI.Persistence.Repository;
+using DefneAI.Persistence.Db;
+using Microsoft.EntityFrameworkCore;
+using DefneAI.Application.InitializerService;
+using DefneAI.Infrastructure.InitializerService;
 
 Console.Title= "DefneAI - The AI Assistant for Developers";
 Console.InputEncoding = System.Text.Encoding.UTF8;
@@ -17,6 +23,13 @@ Kernel kernel = builder.Build();
 DefneAI is an AI assistant designed to help developers with various tasks. It can automate application management, provide code suggestions, and assist in debugging. The assistant leverages the power of AI to enhance productivity and streamline development workflows.
 */
 builder.Services.AddSingleton<DefneAI.Application.Router.DefneAgentRouter>();
+builder.Services.AddScoped<IModelRepository, ModelRepository>();
+builder.Services.AddScoped<IModelInitializerService, ModelInitializerService>();
+builder.Services.AddDbContext<ModelDbContext>(options =>
+{
+    options.UseNpgsql("DefaultConnection");
+});
+
 DefneAgentRouter defne = new DefneAgentRouter(kernel);
 while (true)
 {
