@@ -18,6 +18,7 @@
     <ProjectReference Include="..\DefneAI.Application\DefneAI.Application.csproj" />
     <ProjectReference Include="..\DefneAI.Domain\DefneAI.Domain.csproj" />
     <ProjectReference Include="..\DefneAI.Infrastructure\DefneAI.Infrastructure.csproj" />
+    <ProjectReference Include="..\DefneAI.Persistence\DefneAI.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

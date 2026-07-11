@@ -2,5 +2,6 @@
   <Project Path="DefneAI.Application/DefneAI.Application.csproj" Id="389759f3-1500-49dc-9c5f-7a82128b27ea" />
   <Project Path="DefneAI.Domain/DefneAI.Domain.csproj" Id="57b44b30-a66a-4e6b-a9e9-66bc6d93d5c2" />
   <Project Path="DefneAI.Infrastructure/DefneAI.Infrastructure.csproj" Id="133740a6-e37e-4d8c-a33f-95cc3c4a52e4" />
+  <Project Path="DefneAI.Persistence/DefneAI.Persistence.csproj" Id="3383f9e0-32ea-41dc-abf4-4e45f1b73ed7" />
   <Project Path="DefneAI/DefneAI.csproj" />
 </Solution>

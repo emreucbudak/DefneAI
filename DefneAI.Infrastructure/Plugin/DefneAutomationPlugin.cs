@@ -1,7 +1,4 @@
 ﻿using Microsoft.SemanticKernel;
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
 using System.ComponentModel;
 
 namespace DefneAI.Infrastructure.Plugin
@@ -96,36 +93,6 @@ namespace DefneAI.Infrastructure.Plugin
             }
         }
         [KernelFunction]
-        [Description("Bu fonksiyon youtubedan belirtilen şarkıyı açar")]
-        public string OpenMusic(string MusicName)
-        {
-            ChromeOptions options = new ChromeOptions();
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string chromeUserDataPath = Path.Combine(localAppData, @"Google\Chrome\User Data");
-            options.AddArgument("--headless");
-            options.AddArgument($"--user-data-dir={chromeUserDataPath}");
-            options.AddArgument("--profile-directory=Default");
-            options.AddArgument("--disable-extensions");
-            options.AddArgument("--no-first-run");
-            IWebDriver chrome = new OpenQA.Selenium.Chrome.ChromeDriver();
-            try
-            {
-                chrome.Navigate().GoToUrl($"https://www.youtube.com/results?search_query={MusicName}");
-                var wait = new WebDriverWait(chrome, TimeSpan.FromSeconds(10))
-                {
-                    PollingInterval = TimeSpan.FromMilliseconds(250)
-                };
-                var firstResult = wait.Until(driver => driver.FindElement(By.XPath("(//a[@id='video-title'])[1]")));
-                firstResult.Click();
-                return $"Müzik '{MusicName}' başarıyla açıldı.";
-
-            }
-            catch (Exception ex)
-            {
-                return $"Müzik '{MusicName}' açılamadı: {ex.Message}";
-            }
-        }
-        [KernelFunction]
         [Description("Bu Fonksiyon istenen dosyanın içeriğini değiştirir")]
         public async Task<string> ModifyFileContent(string filePath, string newContent)
         {
@@ -178,6 +145,50 @@ namespace DefneAI.Infrastructure.Plugin
             catch (Exception ex)
             {
                 return $"Dosya '{filePath}' silinemedi: {ex.Message}";
+            }
+        }
+        [KernelFunction]
+        [Description("Bu Fonksiyon Cmdde istenen fonksiyonu çalıştırır")]
+        public string ExecuteCommand(string command)
+        {
+            try
+            {
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = "cmd.exe";
+                process.StartInfo.Arguments = $"/C {command}";
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return $"Komut başarıyla çalıştırıldı. Çıktı:\n{output}";
+            }
+            catch (Exception ex)
+            {
+                return $"Komut çalıştırılamadı: {ex.Message}";
+            }
+        }
+        [KernelFunction]
+        [Description("Bu Fonksiyon istenen komudu PowerShell'de çalıştırır")]
+        public string ExecutePowerShellCommand(string command)
+        {
+            try
+            {
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = "powershell.exe";
+                process.StartInfo.Arguments = $"-Command \"{command}\"";
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return $"PowerShell komutu başarıyla çalıştırıldı. Çıktı:\n{output}";
+            }
+            catch (Exception ex)
+            {
+                return $"PowerShell komutu çalıştırılamadı: {ex.Message}";
             }
         }
     }
