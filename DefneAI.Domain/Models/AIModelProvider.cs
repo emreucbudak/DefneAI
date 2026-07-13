@@ -3,7 +3,11 @@
     public class AIModelProvider
     {
         public int Id { get; set; }
+        public string ModelId { get; set; }
         public string ModelName { get; set; }
+        public string ModelSystemPrompt { get; set; }
+        public string ModelDescription { get; set; }
+        public string ModelInstructions { get; set; }
         public string ApiKey { get; set; }
         public string Endpoint { get; set; }
         public string ServiceId { get; set; }
