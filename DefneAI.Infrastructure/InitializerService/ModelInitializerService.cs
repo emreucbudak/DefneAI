@@ -2,6 +2,7 @@
 using DefneAI.Application.Repository;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 
 namespace DefneAI.Infrastructure.InitializerService
 {
@@ -29,10 +30,12 @@ namespace DefneAI.Infrastructure.InitializerService
             var models = await repo.GetAllModelProviders();
             var modelAgents = new List<ChatCompletionAgent>();
             Kernel kern = kernel.Build();
-            PromptExecutionSettings prompt = new PromptExecutionSettings()
-            {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(), 
+            OpenAIPromptExecutionSettings prompt = new OpenAIPromptExecutionSettings() {
+                Temperature = 0.5,
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                
             };
+
             try
             {
                 foreach(var model in models)
