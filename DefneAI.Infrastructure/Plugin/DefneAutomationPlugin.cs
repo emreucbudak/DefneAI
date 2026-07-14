@@ -1,10 +1,13 @@
-﻿using Microsoft.SemanticKernel;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.SemanticKernel;
 using System.ComponentModel;
 
 namespace DefneAI.Infrastructure.Plugin
 {
-    public class DefneAutomationPlugin
+    public sealed partial class DefneAutomationPlugin(IServiceScopeFactory scopeFactory)
     {
+        private readonly IServiceScopeFactory scopeFactory = scopeFactory;
+
         [KernelFunction]
         [Description("Bu Fonksiyon istenen uygulamayı açar")]
         public string OpenApplication(string applicationName)
