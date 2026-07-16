@@ -2,7 +2,7 @@
 {
     public enum PromptIntent
     {
-        Programming,
+        Coding,
         OfficeTask,
         WebSearch,
         GeneralChat,

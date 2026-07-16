@@ -8,5 +8,6 @@ namespace DefneAI.Application.InitializerService
         Task<string> InitializeModelAsync();
         Task<Kernel> GetKernelAsync();
         Task<IList<ChatCompletionAgent>> GetChatCompletionAgentsAsync();
+        ChatCompletionAgent GetCLIBrain();
     }
 }
