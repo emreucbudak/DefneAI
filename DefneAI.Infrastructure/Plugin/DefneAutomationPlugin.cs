@@ -1,17 +1,13 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using System.ComponentModel;
-using System.Text.Json;
 using DefneAI.Application.Commands;
-using DefneAI.Domain.Models;
+using DefneAI.Application.DTOs;
 
 namespace DefneAI.Infrastructure.Plugin
 {
     public sealed class DefneAutomationPlugin(IServiceScopeFactory scopeFactory)
     {
-        private static readonly JsonSerializerOptions CommandJsonOptions =
-            new(JsonSerializerDefaults.Web);
-
         private readonly IServiceScopeFactory scopeFactory = scopeFactory;
 
         [KernelFunction]
@@ -178,57 +174,30 @@ namespace DefneAI.Infrastructure.Plugin
             string serviceId,
             int priorityNumber)
         {
-            AIModelProvider model = new()
-            {
-                ModelId = modelId,
-                ModelName = modelName,
-                ModelSystemPrompt = modelSystemPrompt,
-                ModelDescription = modelDescription,
-                ModelInstructions = modelInstructions,
-                Temperature = temperature,
-                ApiKey = apiKey,
-                Endpoint = endpoint,
-                ServiceId = serviceId,
-                PriorityNumber = priorityNumber,
-                IsRemoved = false
-            };
+            AddModelDto model = new(
+                ModelId: modelId,
+                ModelName: modelName,
+                ModelSystemPrompt: modelSystemPrompt,
+                ModelDescription: modelDescription,
+                ModelInstructions: modelInstructions,
+                Temperature: temperature,
+                ApiKey: apiKey,
+                Endpoint: endpoint,
+                ServiceId: serviceId,
+                PriorityNumber: priorityNumber);
 
-            return DispatchCommandAsync($"/modelekle {JsonSerializer.Serialize(model, CommandJsonOptions)}");
+            return DispatchAddModelAsync(model);
         }
 
         [KernelFunction]
-        [Description("Kayıtlı bir AI modelini tüm alanlarıyla günceller")]
+        [Description("Kayıtlı bir AI modelinin belirtilen alanını günceller")]
         public Task<string> UpdateModel(
-            int id,
-            string modelId,
             string modelName,
-            string modelSystemPrompt,
-            string modelDescription,
-            string modelInstructions,
-            double temperature,
-            string apiKey,
-            string endpoint,
-            string serviceId,
-            int priorityNumber,
-            bool isRemoved = false)
+            string argumentName,
+            string argumentValue)
         {
-            AIModelProvider model = new()
-            {
-                Id = id,
-                ModelId = modelId,
-                ModelName = modelName,
-                ModelSystemPrompt = modelSystemPrompt,
-                ModelDescription = modelDescription,
-                ModelInstructions = modelInstructions,
-                Temperature = temperature,
-                ApiKey = apiKey,
-                Endpoint = endpoint,
-                ServiceId = serviceId,
-                PriorityNumber = priorityNumber,
-                IsRemoved = isRemoved
-            };
-
-            return DispatchCommandAsync($"/modelguncelle {JsonSerializer.Serialize(model, CommandJsonOptions)}");
+            return DispatchCommandAsync(
+                $"/modelguncelle {modelName} {argumentName} {argumentValue}");
         }
 
         [KernelFunction]
@@ -266,6 +235,19 @@ namespace DefneAI.Infrastructure.Plugin
             {
                 return $"PowerShell komutu çalıştırılamadı: {ex.Message}";
             }
+        }
+
+        private async Task<string> DispatchAddModelAsync(
+            AddModelDto model,
+            CancellationToken cancellationToken = default)
+        {
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ICommandDispatcher commandDispatcher =
+                scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+            return await commandDispatcher.AddModelAsync(
+                model,
+                cancellationToken);
         }
 
         private async Task<string> DispatchCommandAsync(

@@ -1,5 +1,5 @@
-using System.Text.Json;
 using DefneAI.Application.Commands;
+using DefneAI.Application.DTOs;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
@@ -10,12 +10,47 @@ public sealed class CommandDispatcher(
     IModelInitializerService modelInitializerService,
     IModelRepository repository) : ICommandDispatcher
 {
-    private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
-
     public bool IsCommand(string input)
     {
         return !string.IsNullOrWhiteSpace(input) && input.TrimStart().StartsWith('/');
+    }
+
+    public async Task<string> AddModelAsync(
+        AddModelDto modelDto,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(modelDto);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            string validationError = Validate(modelDto);
+            if (!string.IsNullOrEmpty(validationError))
+            {
+                return validationError;
+            }
+
+            AIModelProvider model = new()
+            {
+                ModelId = modelDto.ModelId,
+                ModelName = modelDto.ModelName,
+                ModelSystemPrompt = modelDto.ModelSystemPrompt,
+                ModelDescription = modelDto.ModelDescription,
+                ModelInstructions = modelDto.ModelInstructions,
+                Temperature = modelDto.Temperature,
+                ApiKey = modelDto.ApiKey,
+                Endpoint = modelDto.Endpoint,
+                ServiceId = modelDto.ServiceId,
+                PriorityNumber = modelDto.PriorityNumber,
+                IsRemoved = false
+            };
+
+            return await repository.AddModel(model);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return $"Model eklenemedi: {ex.Message}";
+        }
     }
 
     public async Task<string> ExecuteAsync(
@@ -33,7 +68,6 @@ public sealed class CommandDispatcher(
                 "/komutlar" => GetCommands(),
                 "/beyin" => $"Aktif beyin: {modelInitializerService.GetCLIBrain().Description}",
                 "/modellistele" => await ListModels(),
-                "/modelekle" => await AddModel(arguments),
                 "/modelguncelle" => await UpdateModel(arguments),
                 "/modelsil" => await RemoveModel(arguments),
                 _ => $"Bilinmeyen komut: {command}{Environment.NewLine}/komutlar ile listeyi görüntüle."
@@ -61,8 +95,7 @@ public sealed class CommandDispatcher(
             "/komutlar - Komut listesini gösterir",
             "/beyin - Aktif yerel beyin modelini gösterir",
             "/modellistele - Kayıtlı modelleri listeler",
-            "/modelekle {json} - Yeni model ekler",
-            "/modelguncelle {json} - Id alanındaki modeli günceller",
+            "/modelguncelle {modelAdı} {argümanAdı} {argümanDeğeri} - Model alanını günceller",
             "/modelsil {modelAdı} - Modeli pasif duruma getirir"
         });
     }
@@ -84,30 +117,19 @@ public sealed class CommandDispatcher(
             $"Öncelik: {model.PriorityNumber} | Silindi: {model.IsRemoved}"));
     }
 
-    private async Task<string> AddModel(string arguments)
-    {
-        AIModelProvider? model = DeserializeModel(arguments, out string error);
-        if (model is null)
-        {
-            return error;
-        }
-
-        model.Id = 0;
-        model.IsRemoved = false;
-        return await repository.AddModel(model);
-    }
-
     private async Task<string> UpdateModel(string arguments)
     {
-        AIModelProvider? model = DeserializeModel(arguments, out string error);
-        if (model is null)
-        {
-            return error;
-        }
+        string[] updateArguments = arguments.Split(
+            ' ',
+            3,
+            StringSplitOptions.RemoveEmptyEntries);
 
-        return model.Id <= 0
-            ? "Model güncellemek için Id zorunludur."
-            : await repository.UpdateModel(model);
+        return updateArguments.Length < 3
+            ? "Kullanım: /modelguncelle {modelAdı} {argümanAdı} {argümanDeğeri}"
+            : await repository.UpdateModel(
+                updateArguments[0],
+                updateArguments[1],
+                updateArguments[2]);
     }
 
     private async Task<string> RemoveModel(string arguments)
@@ -117,28 +139,7 @@ public sealed class CommandDispatcher(
             : await repository.RemoveModel(arguments.Trim());
     }
 
-    private static AIModelProvider? DeserializeModel(string json, out string error)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            error = GetAddModelUsage();
-            return null;
-        }
-
-        try
-        {
-            AIModelProvider? model = JsonSerializer.Deserialize<AIModelProvider>(json, JsonOptions);
-            error = model is null ? "Model JSON içeriği boş." : Validate(model);
-            return string.IsNullOrEmpty(error) ? model : null;
-        }
-        catch (JsonException ex)
-        {
-            error = $"Geçersiz JSON: {ex.Message}{Environment.NewLine}{GetAddModelUsage()}";
-            return null;
-        }
-    }
-
-    private static string Validate(AIModelProvider model)
+    private static string Validate(AddModelDto model)
     {
         string[] required =
         {
@@ -165,24 +166,5 @@ public sealed class CommandDispatcher(
         return model.Temperature is < 0 or > 2
             ? "Temperature 0 ile 2 arasında olmalıdır."
             : string.Empty;
-    }
-
-    private static string GetAddModelUsage()
-    {
-        AIModelProvider example = new()
-        {
-            ModelId = "gpt-4o-mini",
-            ModelName = "KodModeli",
-            ModelSystemPrompt = "Yazılım asistanı",
-            ModelDescription = "Kod görevleri",
-            ModelInstructions = "Kısa ve doğru yanıt ver",
-            Temperature = 0.2,
-            ApiKey = "api-key",
-            Endpoint = "https://api.openai.com/v1",
-            ServiceId = "coding-model",
-            PriorityNumber = 1
-        };
-
-        return $"Kullanım: /modelekle {JsonSerializer.Serialize(example, JsonOptions)}";
     }
 }
