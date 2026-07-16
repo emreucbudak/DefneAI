@@ -1,11 +1,17 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using System.ComponentModel;
+using System.Text.Json;
+using DefneAI.Application.Commands;
+using DefneAI.Domain.Models;
 
 namespace DefneAI.Infrastructure.Plugin
 {
-    public sealed partial class DefneAutomationPlugin(IServiceScopeFactory scopeFactory)
+    public sealed class DefneAutomationPlugin(IServiceScopeFactory scopeFactory)
     {
+        private static readonly JsonSerializerOptions CommandJsonOptions =
+            new(JsonSerializerDefaults.Web);
+
         private readonly IServiceScopeFactory scopeFactory = scopeFactory;
 
         [KernelFunction]
@@ -150,28 +156,95 @@ namespace DefneAI.Infrastructure.Plugin
                 return $"Dosya '{filePath}' silinemedi: {ex.Message}";
             }
         }
+
         [KernelFunction]
-        [Description("Bu Fonksiyon Cmdde istenen fonksiyonu çalıştırır")]
-        public string ExecuteCommand(string command)
+        [Description("Kayıtlı AI modellerini API anahtarlarını göstermeden listeler")]
+        public Task<string> ListModels()
         {
-            try
-            {
-                var process = new System.Diagnostics.Process();
-                process.StartInfo.FileName = "cmd.exe";
-                process.StartInfo.Arguments = $"/C {command}";
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.UseShellExecute = false;
-                process.StartInfo.CreateNoWindow = true;
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                process.WaitForExit();
-                return $"Komut başarıyla çalıştırıldı. Çıktı:\n{output}";
-            }
-            catch (Exception ex)
-            {
-                return $"Komut çalıştırılamadı: {ex.Message}";
-            }
+            return DispatchCommandAsync("/modellistele");
         }
+
+        [KernelFunction]
+        [Description("Yeni bir AI modeli kaydeder")]
+        public Task<string> AddModel(
+            string modelId,
+            string modelName,
+            string modelSystemPrompt,
+            string modelDescription,
+            string modelInstructions,
+            double temperature,
+            string apiKey,
+            string endpoint,
+            string serviceId,
+            int priorityNumber)
+        {
+            AIModelProvider model = new()
+            {
+                ModelId = modelId,
+                ModelName = modelName,
+                ModelSystemPrompt = modelSystemPrompt,
+                ModelDescription = modelDescription,
+                ModelInstructions = modelInstructions,
+                Temperature = temperature,
+                ApiKey = apiKey,
+                Endpoint = endpoint,
+                ServiceId = serviceId,
+                PriorityNumber = priorityNumber,
+                IsRemoved = false
+            };
+
+            return DispatchCommandAsync($"/modelekle {JsonSerializer.Serialize(model, CommandJsonOptions)}");
+        }
+
+        [KernelFunction]
+        [Description("Kayıtlı bir AI modelini tüm alanlarıyla günceller")]
+        public Task<string> UpdateModel(
+            int id,
+            string modelId,
+            string modelName,
+            string modelSystemPrompt,
+            string modelDescription,
+            string modelInstructions,
+            double temperature,
+            string apiKey,
+            string endpoint,
+            string serviceId,
+            int priorityNumber,
+            bool isRemoved = false)
+        {
+            AIModelProvider model = new()
+            {
+                Id = id,
+                ModelId = modelId,
+                ModelName = modelName,
+                ModelSystemPrompt = modelSystemPrompt,
+                ModelDescription = modelDescription,
+                ModelInstructions = modelInstructions,
+                Temperature = temperature,
+                ApiKey = apiKey,
+                Endpoint = endpoint,
+                ServiceId = serviceId,
+                PriorityNumber = priorityNumber,
+                IsRemoved = isRemoved
+            };
+
+            return DispatchCommandAsync($"/modelguncelle {JsonSerializer.Serialize(model, CommandJsonOptions)}");
+        }
+
+        [KernelFunction]
+        [Description("Model adına göre kayıtlı AI modelini siler")]
+        public Task<string> RemoveModel(string modelName)
+        {
+            return DispatchCommandAsync($"/modelsil {modelName}");
+        }
+
+        [KernelFunction]
+        [Description("DefneAI komutunu CommandDispatcher üzerinden çalıştırır")]
+        public Task<string> ExecuteCommand(string command)
+        {
+            return DispatchCommandAsync(command);
+        }
+
         [KernelFunction]
         [Description("Bu Fonksiyon istenen komudu PowerShell'de çalıştırır")]
         public string ExecutePowerShellCommand(string command)
@@ -193,6 +266,17 @@ namespace DefneAI.Infrastructure.Plugin
             {
                 return $"PowerShell komutu çalıştırılamadı: {ex.Message}";
             }
+        }
+
+        private async Task<string> DispatchCommandAsync(
+            string command,
+            CancellationToken cancellationToken = default)
+        {
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ICommandDispatcher commandDispatcher =
+                scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+            return await commandDispatcher.ExecuteAsync(command, cancellationToken);
         }
     }
 }
