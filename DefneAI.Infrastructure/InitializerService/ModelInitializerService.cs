@@ -100,10 +100,9 @@ namespace DefneAI.Infrastructure.InitializerService
                 Kernel = brainKernel,
                 Arguments = new KernelArguments(settings),
                 Instructions =
-                    "Analyze the user's prompt and return only a JSON object with intent and level. " +
-                    "Allowed intent values: Coding, OfficeTask, WebSearch, GeneralChat. " +
-                    "Allowed level values: LOW, MEDIUM, HIGH, EXTRAHIGH. " +
-                    "Do not add markdown or explanations."
+                    "Classify the user's prompt according to the criteria supplied in each request. " +
+                    "Return only the requested JSON object. " +
+                    "Do not add markdown, explanations, or additional properties."
             };
 
             return cliBrain;

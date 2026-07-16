@@ -6,11 +6,8 @@ namespace DefneAI.Application.ExecutionService
     {
         Task<string> GetPromptResult(
             string prompt,
+            DefneAI.Domain.Models.PromptAnalysisResult analysis,
             ChatHistoryAgentThread chatHistoryThread,
-            CancellationToken cancellationToken = default);
-
-        Task<DefneAI.Domain.Models.PromptAnalysisResult> AnalyzePromptAsync(
-            string prompt,
             CancellationToken cancellationToken = default);
     }
 }

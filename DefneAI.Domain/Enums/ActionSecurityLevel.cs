@@ -1,6 +1,6 @@
 namespace DefneAI.Domain.Enums
 {
-    public enum PromptSecurityLevel
+    public enum ActionSecurityLevel
     {
         LOW = 0,
         MEDIUM = 1,
