@@ -1,10 +1,11 @@
-using DefneAI.Domain.Enums;
+using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Application.PromptIntentService;
 
 public interface IPromptIntentService
 {
-    Task<PromptIntent> AnalyzeAsync(
+    Task<string> ProcessAsync(
         string prompt,
+        ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default);
 }

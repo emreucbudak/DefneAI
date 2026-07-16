@@ -1,19 +1,26 @@
 using DefneAI.Application.ActionSecurityLevelService;
+using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
 using DefneAI.Domain.Enums;
+using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
+using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Infrastructure.ActionSecurityLevelService;
 
 public sealed class ActionSecurityLevelService(
-    IModelInitializerService modelInitializerService) : IActionSecurityLevelService
+    IModelInitializerService modelInitializerService,
+    IModelExecutionService modelExecutionService) : IActionSecurityLevelService
 {
-    public Task<ActionSecurityLevel> AnalyzeAsync(
+    public async Task<string> ProcessAsync(
         string prompt,
         PromptIntent intent,
         PromptLevel level,
+        ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(chatHistoryThread);
+
         string criteria = $"""
             Classify only the security risk of the action requested by the user.
             The prompt intent is {intent} and its complexity level is {level}.
@@ -30,11 +37,28 @@ public sealed class ActionSecurityLevelService(
             Complexity must not lower or raise the security result by itself.
             """;
 
-        return PromptClassificationClient.AnalyzeAsync<ActionSecurityLevel>(
-            modelInitializerService.GetCLIBrain(),
-            prompt,
-            criteria,
-            "actionSecurityLevel",
-            cancellationToken);
+        ActionSecurityLevel securityLevel =
+            await PromptClassificationClient.AnalyzeAsync<ActionSecurityLevel>(
+                modelInitializerService.GetCLIBrain(),
+                prompt,
+                criteria,
+                "actionSecurityLevel",
+                cancellationToken);
+        PromptAnalysisResult analysis = new(
+            intent,
+            level,
+            securityLevel);
+
+        return securityLevel == ActionSecurityLevel.LOW
+            ? await modelExecutionService.ExecuteLowSecurityAsync(
+                prompt,
+                analysis,
+                chatHistoryThread,
+                cancellationToken)
+            : await modelExecutionService.ExecuteElevatedSecurityAsync(
+                prompt,
+                analysis,
+                chatHistoryThread,
+                cancellationToken);
     }
 }
