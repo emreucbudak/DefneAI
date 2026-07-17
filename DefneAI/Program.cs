@@ -38,6 +38,9 @@ services.AddScoped<DefneAI.Application.Commands.ICommandDispatcher,
 services.AddSingleton<DefneAutomationPlugin>();
 services.AddSingleton<IKernelFactory, DynamicKernelFactory>();
 services.AddScoped<IModelRepository, ModelRepository>();
+services.AddScoped<IChatRepository, ChatRepository>();
+services.AddScoped<IPromptRepository, PromptRepository>();
+services.AddScoped<IAIResponseRepository, AIResponseRepository>();
 services.AddScoped<IModelInitializerService, ModelInitializerService>();
 services.AddScoped<IPromptIntentService, PromptIntentService>();
 services.AddScoped<IPromptLevelService, PromptLevelService>();

@@ -2,6 +2,7 @@ using DefneAI.Application.ActionSecurityLevelService;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.PromptLevelService;
 using DefneAI.Domain.Enums;
+using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
 using Microsoft.SemanticKernel.Agents;
 
@@ -12,12 +13,15 @@ public sealed class PromptLevelService(
     IActionSecurityLevelService actionSecurityLevelService) : IPromptLevelService
 {
     public async Task<string> ProcessAsync(
-        string prompt,
-        PromptIntent intent,
+        Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
+        PromptIntent intent = prompt.PromptIntent
+            ?? throw new InvalidOperationException("Prompt intent has not been assigned.");
 
         string criteria = $"""
             Classify only the complexity of the user's prompt.
@@ -33,17 +37,15 @@ public sealed class PromptLevelService(
             Do not classify security or permission requirements in this step.
             """;
 
-        PromptLevel level = await PromptClassificationClient.AnalyzeAsync<PromptLevel>(
+        prompt.PromptLevel = await PromptClassificationClient.AnalyzeAsync<PromptLevel>(
             modelInitializerService.GetCLIBrain(),
-            prompt,
+            prompt.Content,
             criteria,
             "level",
             cancellationToken);
 
         return await actionSecurityLevelService.ProcessAsync(
             prompt,
-            intent,
-            level,
             chatHistoryThread,
             cancellationToken);
     }

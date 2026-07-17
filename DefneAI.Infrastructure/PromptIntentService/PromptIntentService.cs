@@ -2,6 +2,7 @@ using DefneAI.Application.InitializerService;
 using DefneAI.Application.PromptIntentService;
 using DefneAI.Application.PromptLevelService;
 using DefneAI.Domain.Enums;
+using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
 using Microsoft.SemanticKernel.Agents;
 
@@ -22,22 +23,23 @@ public sealed class PromptIntentService(
         """;
 
     public async Task<string> ProcessAsync(
-        string prompt,
+        Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
 
-        PromptIntent intent = await PromptClassificationClient.AnalyzeAsync<PromptIntent>(
+        prompt.PromptIntent = await PromptClassificationClient.AnalyzeAsync<PromptIntent>(
             modelInitializerService.GetCLIBrain(),
-            prompt,
+            prompt.Content,
             Criteria,
             "intent",
             cancellationToken);
 
         return await promptLevelService.ProcessAsync(
             prompt,
-            intent,
             chatHistoryThread,
             cancellationToken);
     }

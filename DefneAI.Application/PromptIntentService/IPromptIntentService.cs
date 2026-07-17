@@ -5,7 +5,7 @@ namespace DefneAI.Application.PromptIntentService;
 public interface IPromptIntentService
 {
     Task<string> ProcessAsync(
-        string prompt,
+        DefneAI.Domain.Models.Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default);
 }
