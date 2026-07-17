@@ -6,9 +6,7 @@ namespace DefneAI.Application.ActionSecurityLevelService;
 public interface IActionSecurityLevelService
 {
     Task<string> ProcessAsync(
-        string prompt,
-        PromptIntent intent,
-        PromptLevel level,
+        DefneAI.Domain.Models.Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default);
 }

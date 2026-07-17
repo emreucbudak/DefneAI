@@ -5,14 +5,12 @@ namespace DefneAI.Application.ExecutionService
     public interface IModelExecutionService
     {
         Task<string> ExecuteLowSecurityAsync(
-            string prompt,
-            DefneAI.Domain.Models.PromptAnalysisResult analysis,
+            DefneAI.Domain.Models.Prompt prompt,
             ChatHistoryAgentThread chatHistoryThread,
             CancellationToken cancellationToken = default);
 
         Task<string> ExecuteElevatedSecurityAsync(
-            string prompt,
-            DefneAI.Domain.Models.PromptAnalysisResult analysis,
+            DefneAI.Domain.Models.Prompt prompt,
             ChatHistoryAgentThread chatHistoryThread,
             CancellationToken cancellationToken = default);
     }

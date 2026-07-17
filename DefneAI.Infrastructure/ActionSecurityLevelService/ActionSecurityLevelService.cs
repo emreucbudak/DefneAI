@@ -1,6 +1,7 @@
 using DefneAI.Application.ActionSecurityLevelService;
 using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
+using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
@@ -10,16 +11,21 @@ namespace DefneAI.Infrastructure.ActionSecurityLevelService;
 
 public sealed class ActionSecurityLevelService(
     IModelInitializerService modelInitializerService,
-    IModelExecutionService modelExecutionService) : IActionSecurityLevelService
+    IModelExecutionService modelExecutionService,
+    IPromptRepository promptRepository) : IActionSecurityLevelService
 {
     public async Task<string> ProcessAsync(
-        string prompt,
-        PromptIntent intent,
-        PromptLevel level,
+        Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
+        PromptIntent intent = prompt.PromptIntent
+            ?? throw new InvalidOperationException("Prompt intent has not been assigned.");
+        PromptLevel level = prompt.PromptLevel
+            ?? throw new InvalidOperationException("Prompt level has not been assigned.");
 
         string criteria = $"""
             Classify only the security risk of the action requested by the user.
@@ -37,27 +43,22 @@ public sealed class ActionSecurityLevelService(
             Complexity must not lower or raise the security result by itself.
             """;
 
-        ActionSecurityLevel securityLevel =
+        prompt.ActionSecurityLevel =
             await PromptClassificationClient.AnalyzeAsync<ActionSecurityLevel>(
                 modelInitializerService.GetCLIBrain(),
-                prompt,
+                prompt.Content,
                 criteria,
                 "actionSecurityLevel",
                 cancellationToken);
-        PromptAnalysisResult analysis = new(
-            intent,
-            level,
-            securityLevel);
+        await promptRepository.UpdateAsync(prompt, cancellationToken);
 
-        return securityLevel == ActionSecurityLevel.LOW
+        return prompt.ActionSecurityLevel == ActionSecurityLevel.LOW
             ? await modelExecutionService.ExecuteLowSecurityAsync(
                 prompt,
-                analysis,
                 chatHistoryThread,
                 cancellationToken)
             : await modelExecutionService.ExecuteElevatedSecurityAsync(
                 prompt,
-                analysis,
                 chatHistoryThread,
                 cancellationToken);
     }

@@ -2,6 +2,7 @@ using System.Text;
 using DefneAI.Application.Commands;
 using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
+using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -10,57 +11,37 @@ namespace DefneAI.Infrastructure.ExecutionService;
 
 public sealed class ModelExecutionService(
     ICommandDispatcher commandDispatcher,
-    IModelInitializerService modelInitializerService) : IModelExecutionService
+    IModelInitializerService modelInitializerService,
+    IAIResponseRepository aiResponseRepository) : IModelExecutionService
 {
     public async Task<string> ExecuteLowSecurityAsync(
-        string prompt,
-        PromptAnalysisResult analysis,
+        Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
-        ArgumentNullException.ThrowIfNull(analysis);
-        ArgumentNullException.ThrowIfNull(chatHistoryThread);
-        cancellationToken.ThrowIfCancellationRequested();
+        Validate(prompt, chatHistoryThread, cancellationToken);
 
-        if (commandDispatcher.IsCommand(prompt))
+        if (commandDispatcher.IsCommand(prompt.Content))
         {
-            return await commandDispatcher.ExecuteAsync(prompt, cancellationToken);
+            return await commandDispatcher.ExecuteAsync(
+                prompt.Content,
+                cancellationToken);
         }
 
-        IList<ChatCompletionAgent> agents =
-            await modelInitializerService.GetChatCompletionAgentsAsync();
-        ChatCompletionAgent? agent = agents.FirstOrDefault();
-        if (agent is null)
-        {
-            return "Çalıştırılabilir bir AI modeli bulunamadı.";
-        }
-
-        StringBuilder responseBuilder = new();
-        await foreach (AgentResponseItem<ChatMessageContent> response in agent.InvokeAsync(
+        return await ExecuteModelAsync(
+            prompt.Content,
             prompt,
-            thread: chatHistoryThread,
-            cancellationToken: cancellationToken))
-        {
-            responseBuilder.Append(response.Message.Content);
-        }
-
-        string result = responseBuilder.ToString().Trim();
-        return string.IsNullOrWhiteSpace(result)
-            ? "AI modeli bir sonuç üretmedi."
-            : result;
+            chatHistoryThread,
+            isProposal: false,
+            cancellationToken);
     }
 
     public async Task<string> ExecuteElevatedSecurityAsync(
-        string prompt,
-        PromptAnalysisResult analysis,
+        Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
-        ArgumentNullException.ThrowIfNull(analysis);
-        ArgumentNullException.ThrowIfNull(chatHistoryThread);
-        cancellationToken.ThrowIfCancellationRequested();
+        Validate(prompt, chatHistoryThread, cancellationToken);
 
         string proposalPrompt = $"""
             You are in proposal-only mode.
@@ -68,17 +49,18 @@ public sealed class ModelExecutionService(
             Do not call tools, execute commands, modify files, or change any state.
             Return only the proposed solution so the user can approve or reject it.
 
-            Classified intent: {analysis.Intent}
-            Classified complexity: {analysis.Level}
-            Classified action security: {analysis.SecurityLevel}
+            Classified intent: {prompt.PromptIntent}
+            Classified complexity: {prompt.PromptLevel}
+            Classified action security: {prompt.ActionSecurityLevel}
 
             Original user request:
-            {prompt}
+            {prompt.Content}
             """;
-        string proposedSolution = await ExecuteLowSecurityAsync(
+        string proposedSolution = await ExecuteModelAsync(
             proposalPrompt,
-            analysis,
+            prompt,
             chatHistoryThread,
+            isProposal: true,
             cancellationToken);
 
         Console.WriteLine($"Önerilen çözüm:{Environment.NewLine}{proposedSolution}");
@@ -91,10 +73,10 @@ public sealed class ModelExecutionService(
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (commandDispatcher.IsCommand(prompt))
+        if (commandDispatcher.IsCommand(prompt.Content))
         {
             return await commandDispatcher.ExecuteAsync(
-                prompt,
+                prompt.Content,
                 cancellationToken);
         }
 
@@ -104,16 +86,80 @@ public sealed class ModelExecutionService(
             Follow the approved solution and do not perform unrelated actions.
 
             Original user request:
-            {prompt}
+            {prompt.Content}
 
             Approved solution:
             {proposedSolution}
             """;
 
-        return await ExecuteLowSecurityAsync(
+        return await ExecuteModelAsync(
             applicationPrompt,
-            analysis,
+            prompt,
             chatHistoryThread,
+            isProposal: false,
             cancellationToken);
+    }
+
+    private async Task<string> ExecuteModelAsync(
+        string executionPrompt,
+        Prompt prompt,
+        ChatHistoryAgentThread chatHistoryThread,
+        bool isProposal,
+        CancellationToken cancellationToken)
+    {
+        IList<ChatCompletionAgent> agents =
+            await modelInitializerService.GetChatCompletionAgentsAsync();
+        ChatCompletionAgent? agent = agents.FirstOrDefault();
+        if (agent is null)
+        {
+            return "Çalıştırılabilir bir AI modeli bulunamadı.";
+        }
+
+        StringBuilder responseBuilder = new();
+        await foreach (AgentResponseItem<ChatMessageContent> response in agent.InvokeAsync(
+            executionPrompt,
+            thread: chatHistoryThread,
+            cancellationToken: cancellationToken))
+        {
+            responseBuilder.Append(response.Message.Content);
+        }
+
+        string result = responseBuilder.ToString().Trim();
+        if (string.IsNullOrWhiteSpace(result))
+        {
+            return "AI modeli bir sonuç üretmedi.";
+        }
+
+        await aiResponseRepository.AddAsync(
+            new AIResponse
+            {
+                ChatId = prompt.ChatId,
+                PromptId = prompt.Id,
+                Content = result,
+                ModelName = agent.Name ?? agent.Id ?? "Unknown",
+                IsProposal = isProposal
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static void Validate(
+        Prompt prompt,
+        ChatHistoryAgentThread chatHistoryThread,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(prompt);
+        ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
+        ArgumentNullException.ThrowIfNull(chatHistoryThread);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (prompt.PromptIntent is null ||
+            prompt.PromptLevel is null ||
+            prompt.ActionSecurityLevel is null)
+        {
+            throw new InvalidOperationException(
+                "Prompt analysis must be completed before model execution.");
+        }
     }
 }
