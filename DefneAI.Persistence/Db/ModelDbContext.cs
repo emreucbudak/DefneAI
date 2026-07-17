@@ -7,11 +7,15 @@ namespace DefneAI.Persistence.Db
     {
         public ModelDbContext(DbContextOptions options) : base(options)
         {
+            IsDatabaseConfigured = options.Extensions.Any(
+                extension => extension.Info.IsDatabaseProvider);
         }
 
         protected ModelDbContext()
         {
         }
+
+        public bool IsDatabaseConfigured { get; }
         public DbSet<AIModelProvider> aIModelProviders { get; set; }
         public DbSet<Chat> Chats { get; set; }
         public DbSet<Prompt> Prompts { get; set; }

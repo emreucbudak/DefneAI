@@ -18,7 +18,7 @@ public sealed class PromptIntentService(
         - Coding: software development, architecture, debugging, code, model or tool configuration.
         - OfficeTask: documents, spreadsheets, presentations, email or calendar work.
         - WebSearch: information that requires browsing, current data or online research.
-        - GeneralChat: conversation, explanation or requests outside the other categories.
+        - GeneralChat: conversation, chat-session management, explanation or requests outside the other categories.
         Do not classify complexity or security in this step.
         """;
 

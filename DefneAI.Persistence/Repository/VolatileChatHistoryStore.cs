@@ -5,16 +5,26 @@ namespace DefneAI.Persistence.Repository;
 internal static class VolatileChatHistoryStore
 {
     private static readonly object SyncRoot = new();
-    private static Chat? latestChat;
+    private static readonly List<Chat> Chats = [];
     private static int chatId;
     private static int promptId;
     private static int responseId;
 
-    public static Chat? GetLatest()
+    public static IReadOnlyList<Chat> GetAll()
     {
         lock (SyncRoot)
         {
-            return latestChat;
+            return Chats
+                .OrderByDescending(chat => chat.CreatedAtUtc)
+                .ToArray();
+        }
+    }
+
+    public static Chat? GetById(int id)
+    {
+        lock (SyncRoot)
+        {
+            return Chats.FirstOrDefault(chat => chat.Id == id);
         }
     }
 
@@ -24,7 +34,7 @@ internal static class VolatileChatHistoryStore
         {
             chat.Id = chat.Id == 0 ? ++chatId : chat.Id;
             chatId = Math.Max(chatId, chat.Id);
-            latestChat = chat;
+            Chats.Add(chat);
             return chat;
         }
     }
@@ -79,10 +89,23 @@ internal static class VolatileChatHistoryStore
         }
     }
 
+    public static bool Delete(int id)
+    {
+        lock (SyncRoot)
+        {
+            Chat? chat = Chats.FirstOrDefault(item => item.Id == id);
+            if (chat is null)
+            {
+                return false;
+            }
+
+            return Chats.Remove(chat);
+        }
+    }
+
     private static Chat GetRequiredChat(int id)
     {
-        return latestChat is not null && latestChat.Id == id
-            ? latestChat
-            : throw new InvalidOperationException($"Chat {id} was not found.");
+        return Chats.FirstOrDefault(chat => chat.Id == id)
+            ?? throw new InvalidOperationException($"Chat {id} was not found.");
     }
 }

@@ -31,15 +31,17 @@ public sealed class ActionSecurityLevelService(
             Classify only the security risk of the action requested by the user.
             The prompt intent is {intent} and its complexity level is {level}.
             Allowed values:
-            - LOW: read-only work or generating an answer without changing state.
+            - LOW: read-only work, generating an answer, or reversible chat-session navigation.
             - MEDIUM: reversible local file changes or non-destructive local execution.
-            - HIGH: persistent model or database changes, deletion, or external side effects.
+            - HIGH: destructive deletion, persistent model configuration, sensitive database changes, or external side effects.
             - EXTRAHIGH: shell or administrator commands, credentials, secrets, or hard-to-reverse system changes.
             Examples:
             - "C# metodu yaz ve cevapta göster" is LOW.
             - "C# kodunu projeye ekle" is MEDIUM.
             - "/modelekle ..." and "/modelsil ..." are HIGH.
             - "PowerShell komutu çalıştır" is EXTRAHIGH.
+            - "/yenichat", "/sohbetler", and "/chatsec ..." are LOW.
+            - "/chatsil ..." is HIGH.
             Complexity must not lower or raise the security result by itself.
             """;
 

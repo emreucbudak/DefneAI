@@ -7,12 +7,12 @@ namespace DefneAI.Persistence.Repository;
 
 public sealed class ChatRepository(ModelDbContext context) : IChatRepository
 {
-    public async Task<Chat?> GetLatestWithHistoryAsync(
+    public async Task<IReadOnlyList<Chat>> GetAllWithHistoryAsync(
         CancellationToken cancellationToken = default)
     {
-        if (context.Database.ProviderName is null)
+        if (!context.IsDatabaseConfigured)
         {
-            return VolatileChatHistoryStore.GetLatest();
+            return VolatileChatHistoryStore.GetAll();
         }
 
         return await context.Chats
@@ -21,7 +21,24 @@ public sealed class ChatRepository(ModelDbContext context) : IChatRepository
             .Include(chat => chat.Responses)
             .AsSplitQuery()
             .OrderByDescending(chat => chat.CreatedAtUtc)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Chat?> GetByIdWithHistoryAsync(
+        int chatId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!context.IsDatabaseConfigured)
+        {
+            return VolatileChatHistoryStore.GetById(chatId);
+        }
+
+        return await context.Chats
+            .AsNoTracking()
+            .Include(chat => chat.Prompts)
+            .Include(chat => chat.Responses)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(chat => chat.Id == chatId, cancellationToken);
     }
 
     public async Task<Chat> AddAsync(
@@ -30,7 +47,7 @@ public sealed class ChatRepository(ModelDbContext context) : IChatRepository
     {
         ArgumentNullException.ThrowIfNull(chat);
 
-        if (context.Database.ProviderName is null)
+        if (!context.IsDatabaseConfigured)
         {
             return VolatileChatHistoryStore.Add(chat);
         }
@@ -38,5 +55,27 @@ public sealed class ChatRepository(ModelDbContext context) : IChatRepository
         await context.Chats.AddAsync(chat, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
         return chat;
+    }
+
+    public async Task<bool> DeleteAsync(
+        int chatId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!context.IsDatabaseConfigured)
+        {
+            return VolatileChatHistoryStore.Delete(chatId);
+        }
+
+        Chat? chat = await context.Chats.FindAsync(
+            [chatId],
+            cancellationToken);
+        if (chat is null)
+        {
+            return false;
+        }
+
+        context.Chats.Remove(chat);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }
