@@ -34,6 +34,7 @@ public sealed class PromptLevelService(
             Examples:
             - "C# metodu yaz" is LOW.
             - "/modelekle ..." is MEDIUM.
+            - Chat session commands such as "/yenichat" and "/chatsil" are LOW.
             Do not classify security or permission requirements in this step.
             """;
 

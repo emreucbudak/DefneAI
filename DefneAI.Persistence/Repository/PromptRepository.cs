@@ -12,7 +12,7 @@ public sealed class PromptRepository(ModelDbContext context) : IPromptRepository
     {
         ArgumentNullException.ThrowIfNull(prompt);
 
-        if (context.Database.ProviderName is null)
+        if (!context.IsDatabaseConfigured)
         {
             return VolatileChatHistoryStore.Add(prompt);
         }
@@ -28,7 +28,7 @@ public sealed class PromptRepository(ModelDbContext context) : IPromptRepository
     {
         ArgumentNullException.ThrowIfNull(prompt);
 
-        if (context.Database.ProviderName is null)
+        if (!context.IsDatabaseConfigured)
         {
             VolatileChatHistoryStore.Update(prompt);
             return;

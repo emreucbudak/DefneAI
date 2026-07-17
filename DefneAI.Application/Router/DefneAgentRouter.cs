@@ -1,19 +1,18 @@
 using DefneAI.Application.PromptIntentService;
+using DefneAI.Application.ChatSession;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
 
 namespace DefneAI.Application.Router
 {
     public sealed class DefneAgentRouter(
         IPromptIntentService promptIntentService,
-        IChatRepository chatRepository,
+        IChatSessionService chatSessionService,
         IPromptRepository promptRepository)
     {
-        private Chat? activeChat;
-
-        public ChatHistoryAgentThread ChatHistoryThread { get; private set; } = new();
+        public ChatHistoryAgentThread ChatHistoryThread =>
+            chatSessionService.ChatHistoryThread;
 
         public async Task<string> GetPromptResult(
             string prompt,
@@ -21,7 +20,8 @@ namespace DefneAI.Application.Router
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
 
-            Chat chat = await GetOrCreateChatAsync(cancellationToken);
+            Chat chat = await chatSessionService.GetOrCreateActiveChatAsync(
+                cancellationToken);
             Prompt promptRecord = new()
             {
                 ChatId = chat.Id,
@@ -34,48 +34,5 @@ namespace DefneAI.Application.Router
                 ChatHistoryThread,
                 cancellationToken);
         }
-
-        private async Task<Chat> GetOrCreateChatAsync(
-            CancellationToken cancellationToken)
-        {
-            if (activeChat is not null)
-            {
-                return activeChat;
-            }
-
-            activeChat = await chatRepository.GetLatestWithHistoryAsync(cancellationToken)
-                ?? await chatRepository.AddAsync(new Chat(), cancellationToken);
-
-            ChatHistory chatHistory = new();
-            IEnumerable<HistoryEntry> historyEntries = activeChat.Prompts
-                .Select(prompt => new HistoryEntry(
-                    prompt.CreatedAtUtc,
-                    0,
-                    AuthorRole.User,
-                    prompt.Content))
-                .Concat(activeChat.Responses.Select(response => new HistoryEntry(
-                    response.CreatedAtUtc,
-                    1,
-                    AuthorRole.Assistant,
-                    response.Content)))
-                .OrderBy(entry => entry.CreatedAtUtc)
-                .ThenBy(entry => entry.RoleOrder);
-
-            foreach (HistoryEntry entry in historyEntries)
-            {
-                chatHistory.AddMessage(entry.Role, entry.Content);
-            }
-
-            ChatHistoryThread = new ChatHistoryAgentThread(
-                chatHistory,
-                $"chat-{activeChat.Id}");
-            return activeChat;
-        }
-
-        private sealed record HistoryEntry(
-            DateTime CreatedAtUtc,
-            int RoleOrder,
-            AuthorRole Role,
-            string Content);
     }
 }

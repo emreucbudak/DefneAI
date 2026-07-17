@@ -12,7 +12,7 @@ public sealed class AIResponseRepository(ModelDbContext context) : IAIResponseRe
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (context.Database.ProviderName is null)
+        if (!context.IsDatabaseConfigured)
         {
             return VolatileChatHistoryStore.Add(response);
         }
