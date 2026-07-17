@@ -8,9 +8,8 @@ using Microsoft.SemanticKernel.ChatCompletion;
 namespace DefneAI.Infrastructure.ChatSession;
 
 public sealed class ChatSessionService(
-    IServiceScopeFactory scopeFactory) : IChatSessionService, IDisposable
+    IServiceScopeFactory scopeFactory) : IChatSessionService
 {
-    private readonly SemaphoreSlim sessionLock = new(1, 1);
     private Chat? activeChat;
 
     public int? ActiveChatId => activeChat?.Id;
@@ -24,48 +23,28 @@ public sealed class ChatSessionService(
             return activeChat;
         }
 
-        await sessionLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (activeChat is not null)
-            {
-                return activeChat;
-            }
+        using IServiceScope scope = scopeFactory.CreateScope();
+        IChatRepository repository =
+            scope.ServiceProvider.GetRequiredService<IChatRepository>();
+        IReadOnlyList<Chat> chats =
+            await repository.GetAllWithHistoryAsync(cancellationToken);
+        Chat chat = chats.FirstOrDefault()
+            ?? await repository.AddAsync(new Chat(), cancellationToken);
 
-            using IServiceScope scope = scopeFactory.CreateScope();
-            IChatRepository repository =
-                scope.ServiceProvider.GetRequiredService<IChatRepository>();
-            IReadOnlyList<Chat> chats =
-                await repository.GetAllWithHistoryAsync(cancellationToken);
-            Chat chat = chats.FirstOrDefault()
-                ?? await repository.AddAsync(new Chat(), cancellationToken);
-
-            SetActiveChat(chat);
-            return chat;
-        }
-        finally
-        {
-            sessionLock.Release();
-        }
+        SetActiveChatHistory(chat);
+        return chat;
     }
 
     public async Task<Chat> CreateNewChatAsync(
         CancellationToken cancellationToken = default)
     {
-        await sessionLock.WaitAsync(cancellationToken);
-        try
-        {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            IChatRepository repository =
-                scope.ServiceProvider.GetRequiredService<IChatRepository>();
-            Chat chat = await repository.AddAsync(new Chat(), cancellationToken);
-            SetActiveChat(chat);
-            return chat;
-        }
-        finally
-        {
-            sessionLock.Release();
-        }
+        using IServiceScope scope = scopeFactory.CreateScope();
+        IChatRepository repository =
+            scope.ServiceProvider.GetRequiredService<IChatRepository>();
+        Chat chat = await repository.AddAsync(new Chat(), cancellationToken);
+
+        SetActiveChatHistory(chat);
+        return chat;
     }
 
     public async Task<IReadOnlyList<Chat>> GetChatsAsync(
@@ -86,27 +65,19 @@ public sealed class ChatSessionService(
             return false;
         }
 
-        await sessionLock.WaitAsync(cancellationToken);
-        try
+        using IServiceScope scope = scopeFactory.CreateScope();
+        IChatRepository repository =
+            scope.ServiceProvider.GetRequiredService<IChatRepository>();
+        Chat? chat = await repository.GetByIdWithHistoryAsync(
+            chatId,
+            cancellationToken);
+        if (chat is null)
         {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            IChatRepository repository =
-                scope.ServiceProvider.GetRequiredService<IChatRepository>();
-            Chat? chat = await repository.GetByIdWithHistoryAsync(
-                chatId,
-                cancellationToken);
-            if (chat is null)
-            {
-                return false;
-            }
+            return false;
+        }
 
-            SetActiveChat(chat);
-            return true;
-        }
-        finally
-        {
-            sessionLock.Release();
-        }
+        SetActiveChatHistory(chat);
+        return true;
     }
 
     public async Task<bool> DeleteChatAsync(
@@ -118,56 +89,50 @@ public sealed class ChatSessionService(
             return false;
         }
 
-        await sessionLock.WaitAsync(cancellationToken);
-        try
+        using IServiceScope scope = scopeFactory.CreateScope();
+        IChatRepository repository =
+            scope.ServiceProvider.GetRequiredService<IChatRepository>();
+        bool deleted = await repository.DeleteAsync(chatId, cancellationToken);
+        if (!deleted || activeChat?.Id != chatId)
         {
-            using IServiceScope scope = scopeFactory.CreateScope();
-            IChatRepository repository =
-                scope.ServiceProvider.GetRequiredService<IChatRepository>();
-            bool deleted = await repository.DeleteAsync(chatId, cancellationToken);
-            if (!deleted || activeChat?.Id != chatId)
-            {
-                return deleted;
-            }
+            return deleted;
+        }
 
-            IReadOnlyList<Chat> remainingChats =
-                await repository.GetAllWithHistoryAsync(cancellationToken);
-            Chat nextChat = remainingChats.FirstOrDefault()
-                ?? await repository.AddAsync(new Chat(), cancellationToken);
-            SetActiveChat(nextChat);
-            return true;
-        }
-        finally
-        {
-            sessionLock.Release();
-        }
+        IReadOnlyList<Chat> remainingChats =
+            await repository.GetAllWithHistoryAsync(cancellationToken);
+        Chat nextChat = remainingChats.FirstOrDefault()
+            ?? await repository.AddAsync(new Chat(), cancellationToken);
+        SetActiveChatHistory(nextChat);
+        return true;
     }
 
-    public void Dispose()
-    {
-        sessionLock.Dispose();
-    }
-
-    private void SetActiveChat(Chat chat)
+    private void SetActiveChatHistory(Chat chat)
     {
         ChatHistory history = new();
-        IEnumerable<HistoryEntry> entries = chat.Prompts
-            .Select(prompt => new HistoryEntry(
+        IEnumerable<HistoryMessage> messages = chat.Prompts
+            .Select(prompt => new HistoryMessage(
                 prompt.CreatedAtUtc,
                 0,
-                AuthorRole.User,
+                IsUser: true,
                 prompt.Content))
-            .Concat(chat.Responses.Select(response => new HistoryEntry(
+            .Concat(chat.Responses.Select(response => new HistoryMessage(
                 response.CreatedAtUtc,
                 1,
-                AuthorRole.Assistant,
+                IsUser: false,
                 response.Content)))
-            .OrderBy(entry => entry.CreatedAtUtc)
-            .ThenBy(entry => entry.RoleOrder);
+            .OrderBy(message => message.CreatedAtUtc)
+            .ThenBy(message => message.RoleOrder);
 
-        foreach (HistoryEntry entry in entries)
+        foreach (HistoryMessage message in messages)
         {
-            history.AddMessage(entry.Role, entry.Content);
+            if (message.IsUser)
+            {
+                history.AddUserMessage(message.Content);
+            }
+            else
+            {
+                history.AddAssistantMessage(message.Content);
+            }
         }
 
         activeChat = chat;
@@ -176,9 +141,9 @@ public sealed class ChatSessionService(
             $"chat-{chat.Id}");
     }
 
-    private sealed record HistoryEntry(
+    private sealed record HistoryMessage(
         DateTime CreatedAtUtc,
         int RoleOrder,
-        AuthorRole Role,
+        bool IsUser,
         string Content);
 }
