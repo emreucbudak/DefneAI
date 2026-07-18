@@ -3,6 +3,7 @@ using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using DefneAI.Application.Commands;
 using DefneAI.Application.DTOs;
+using DefneAI.Domain.Enums;
 
 namespace DefneAI.Infrastructure.Plugin
 {
@@ -168,6 +169,7 @@ namespace DefneAI.Infrastructure.Plugin
             string modelSystemPrompt,
             string modelDescription,
             string modelInstructions,
+            AITaskType modelPurpose,
             double temperature,
             string apiKey,
             string endpoint,
@@ -180,6 +182,7 @@ namespace DefneAI.Infrastructure.Plugin
                 ModelSystemPrompt: modelSystemPrompt,
                 ModelDescription: modelDescription,
                 ModelInstructions: modelInstructions,
+                ModelPurpose: modelPurpose,
                 Temperature: temperature,
                 ApiKey: apiKey,
                 Endpoint: endpoint,

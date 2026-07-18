@@ -1,5 +1,7 @@
 ﻿namespace DefneAI.Domain.Models
 {
+    using DefneAI.Domain.Enums;
+
     public class AIModelProvider
     {
         public int Id { get; set; }
@@ -8,6 +10,7 @@
         public string ModelSystemPrompt { get; set; } = string.Empty;
         public string ModelDescription { get; set; } = string.Empty;
         public string ModelInstructions { get; set; } = string.Empty;
+        public AITaskType ModelPurpose { get; set; }
         public bool IsRemoved { get; set;}
         public double Temperature { get; set; }
         public string ApiKey { get; set; } = string.Empty;
