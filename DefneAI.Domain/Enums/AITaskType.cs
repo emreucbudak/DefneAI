@@ -1,6 +1,6 @@
 ﻿namespace DefneAI.Domain.Enums
 {
-    public enum PromptIntent
+    public enum AITaskType
     {
         Coding,
         OfficeTask,
