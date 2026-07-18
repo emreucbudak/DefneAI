@@ -1,46 +1,59 @@
+using System.Text;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.PromptFilter;
-using PromptLevelFilter = DefneAI.Infrastructure.PromptLevelService.PromptLevelService;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
-using DefneAI.Infrastructure.PromptAnalysis;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Infrastructure.PromptIntentService;
 
 public sealed class PromptIntentService(
-    IModelInitializerService modelInitializerService,
-    PromptLevelFilter promptLevelService) : IPromptFilter
+    IModelInitializerService modelInitializerService) : IPromptFilter
 {
-    private const string Criteria = """
-        Classify only the user's primary intent.
-        Allowed values:
-        - Coding: software development, architecture, debugging, code, model or tool configuration.
-        - OfficeTask: documents, spreadsheets, presentations, email or calendar work.
-        - WebSearch: information that requires browsing, current data or online research.
-        - GeneralChat: conversation, chat-session management, explanation or requests outside the other categories.
-        Do not classify complexity or security in this step.
-        """;
+    public int Priority => 1;
 
-    public async Task<string> ControlAsync(
+    public async Task ControlAsync(
         Prompt prompt,
-        ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
-        ArgumentNullException.ThrowIfNull(chatHistoryThread);
 
-        prompt.PromptIntent = await PromptClassificationClient.AnalyzeAsync<AITaskType>(
-            modelInitializerService.GetCLIBrain(),
-            prompt.Content,
-            Criteria,
-            "intent",
-            cancellationToken);
+        string classificationPrompt = $"""
+            Classify only the user's primary intent.
+            Choose exactly one of these values:
+            - Coding: software development, architecture, debugging, code, model or tool configuration.
+            - OfficeTask: documents, spreadsheets, presentations, email or calendar work.
+            - WebSearch: information that requires browsing, current data or online research.
+            - GeneralChat: conversation, chat-session management, explanation or other requests.
+            Do not classify complexity or security in this step.
+            Return only the selected value without JSON, quotes, markdown, or explanation.
 
-        return await promptLevelService.ControlAsync(
-            prompt,
-            chatHistoryThread,
-            cancellationToken);
+            User prompt:
+            {prompt.Content}
+            """;
+        StringBuilder responseBuilder = new();
+        ChatHistoryAgentThread analysisThread = new();
+
+        await foreach (AgentResponseItem<ChatMessageContent> response in
+            modelInitializerService.GetCLIBrain().InvokeAsync(
+                classificationPrompt,
+                thread: analysisThread,
+                cancellationToken: cancellationToken))
+        {
+            responseBuilder.Append(response.Message.Content);
+        }
+
+        string modelResponse = responseBuilder.ToString().Trim();
+        prompt.PromptIntent = modelResponse.ToUpperInvariant() switch
+        {
+            "CODING" => AITaskType.Coding,
+            "OFFICETASK" => AITaskType.OfficeTask,
+            "WEBSEARCH" => AITaskType.WebSearch,
+            "GENERALCHAT" => AITaskType.GeneralChat,
+            _ => throw new InvalidOperationException(
+                $"Prompt intent model returned an invalid value: '{modelResponse}'.")
+        };
     }
 }
