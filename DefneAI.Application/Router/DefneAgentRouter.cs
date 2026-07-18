@@ -1,4 +1,4 @@
-using DefneAI.Application.PromptIntentService;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
@@ -7,7 +7,7 @@ using Microsoft.SemanticKernel.Agents;
 namespace DefneAI.Application.Router
 {
     public sealed class DefneAgentRouter(
-        IPromptIntentService promptIntentService,
+        IPromptFilter promptFilter,
         IChatSessionService chatSessionService,
         IPromptRepository promptRepository)
     {
@@ -29,7 +29,7 @@ namespace DefneAI.Application.Router
             };
             await promptRepository.AddAsync(promptRecord, cancellationToken);
 
-            return await promptIntentService.ProcessAsync(
+            return await promptFilter.ControlAsync(
                 promptRecord,
                 ChatHistoryThread,
                 cancellationToken);

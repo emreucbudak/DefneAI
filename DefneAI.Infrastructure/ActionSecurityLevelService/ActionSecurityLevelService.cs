@@ -1,9 +1,10 @@
-using DefneAI.Application.ActionSecurityLevelService;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
+using DefneAI.Infrastructure.ExecutionService;
 using DefneAI.Infrastructure.PromptAnalysis;
 using Microsoft.SemanticKernel.Agents;
 
@@ -11,10 +12,13 @@ namespace DefneAI.Infrastructure.ActionSecurityLevelService;
 
 public sealed class ActionSecurityLevelService(
     IModelInitializerService modelInitializerService,
-    IModelExecutionService modelExecutionService,
-    IPromptRepository promptRepository) : IActionSecurityLevelService
+    CodingModelExecutionService codingModelExecutionService,
+    OfficeTaskModelExecutionService officeTaskModelExecutionService,
+    WebSearchModelExecutionService webSearchModelExecutionService,
+    GeneralChatModelExecutionService generalChatModelExecutionService,
+    IPromptRepository promptRepository) : IPromptFilter
 {
-    public async Task<string> ProcessAsync(
+    public async Task<string> ControlAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
@@ -53,13 +57,22 @@ public sealed class ActionSecurityLevelService(
                 "actionSecurityLevel",
                 cancellationToken);
         await promptRepository.UpdateAsync(prompt, cancellationToken);
+        IModelExecutionService executionService = intent switch
+        {
+            AITaskType.Coding => codingModelExecutionService,
+            AITaskType.OfficeTask => officeTaskModelExecutionService,
+            AITaskType.WebSearch => webSearchModelExecutionService,
+            AITaskType.GeneralChat => generalChatModelExecutionService,
+            _ => throw new InvalidOperationException(
+                $"Unsupported AI task type: {intent}.")
+        };
 
         return prompt.ActionSecurityLevel == ActionSecurityLevel.LOW
-            ? await modelExecutionService.ExecuteLowSecurityAsync(
+            ? await executionService.ExecuteLowSecurityAsync(
                 prompt,
                 chatHistoryThread,
                 cancellationToken)
-            : await modelExecutionService.ExecuteElevatedSecurityAsync(
+            : await executionService.ExecuteElevatedSecurityAsync(
                 prompt,
                 chatHistoryThread,
                 cancellationToken);

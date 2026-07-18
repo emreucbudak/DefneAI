@@ -3,17 +3,20 @@ using DefneAI.Application.Commands;
 using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
+using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Infrastructure.ExecutionService;
 
-public sealed class ModelExecutionService(
+public sealed class OfficeTaskModelExecutionService(
     ICommandDispatcher commandDispatcher,
     IModelInitializerService modelInitializerService,
     IAIResponseRepository aiResponseRepository) : IModelExecutionService
 {
+    public AITaskType TaskType => AITaskType.OfficeTask;
+
     public async Task<string> ExecuteLowSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
@@ -63,13 +66,13 @@ public sealed class ModelExecutionService(
             isProposal: true,
             cancellationToken);
 
-        Console.WriteLine($"√ñnerilen √ß√∂z√ºm:{Environment.NewLine}{proposedSolution}");
-        Console.Write("√á√∂z√ºm uygulansƒ±n mƒ±? (y/n): ");
+        Console.WriteLine($"ônerilen áîzÅm:{Environment.NewLine}{proposedSolution}");
+        Console.Write("ÄîzÅm uygulansçn mç? (y/n): ");
         string? permission = Console.ReadLine()?.Trim();
 
         if (!string.Equals(permission, "y", StringComparison.OrdinalIgnoreCase))
         {
-            return "ƒ∞≈ülem kullanƒ±cƒ± tarafƒ±ndan onaylanmadƒ±; √∂nerilen √ß√∂z√ºm uygulanmadƒ±.";
+            return "òülem kullançcç tarafçndan onaylanmadç; înerilen áîzÅm uygulanmadç.";
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -108,11 +111,11 @@ public sealed class ModelExecutionService(
         CancellationToken cancellationToken)
     {
         IList<ChatCompletionAgent> agents =
-            await modelInitializerService.GetChatCompletionAgentsAsync();
+            await modelInitializerService.GetChatCompletionAgentsAsync(TaskType);
         ChatCompletionAgent? agent = agents.FirstOrDefault();
         if (agent is null)
         {
-            return "√áalƒ±≈ütƒ±rƒ±labilir bir AI modeli bulunamadƒ±.";
+            return "Äalçütçrçlabilir bir AI modeli bulunamadç.";
         }
 
         StringBuilder responseBuilder = new();
@@ -127,7 +130,7 @@ public sealed class ModelExecutionService(
         string result = responseBuilder.ToString().Trim();
         if (string.IsNullOrWhiteSpace(result))
         {
-            return "AI modeli bir sonu√ß √ºretmedi.";
+            return "AI modeli bir sonuá Åretmedi.";
         }
 
         await aiResponseRepository.AddAsync(
@@ -144,7 +147,7 @@ public sealed class ModelExecutionService(
         return result;
     }
 
-    private static void Validate(
+    private void Validate(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken)
@@ -160,6 +163,12 @@ public sealed class ModelExecutionService(
         {
             throw new InvalidOperationException(
                 "Prompt analysis must be completed before model execution.");
+        }
+
+        if (prompt.PromptIntent != TaskType)
+        {
+            throw new InvalidOperationException(
+                $"Prompt intent '{prompt.PromptIntent}' does not match execution task type '{TaskType}'.");
         }
     }
 }

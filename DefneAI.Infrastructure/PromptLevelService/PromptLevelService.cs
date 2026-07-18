@@ -1,6 +1,6 @@
-using DefneAI.Application.ActionSecurityLevelService;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Application.InitializerService;
-using DefneAI.Application.PromptLevelService;
+using ActionSecurityFilter = DefneAI.Infrastructure.ActionSecurityLevelService.ActionSecurityLevelService;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
@@ -10,9 +10,9 @@ namespace DefneAI.Infrastructure.PromptLevelService;
 
 public sealed class PromptLevelService(
     IModelInitializerService modelInitializerService,
-    IActionSecurityLevelService actionSecurityLevelService) : IPromptLevelService
+    ActionSecurityFilter actionSecurityLevelService) : IPromptFilter
 {
-    public async Task<string> ProcessAsync(
+    public async Task<string> ControlAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
@@ -45,7 +45,7 @@ public sealed class PromptLevelService(
             "level",
             cancellationToken);
 
-        return await actionSecurityLevelService.ProcessAsync(
+        return await actionSecurityLevelService.ControlAsync(
             prompt,
             chatHistoryThread,
             cancellationToken);
