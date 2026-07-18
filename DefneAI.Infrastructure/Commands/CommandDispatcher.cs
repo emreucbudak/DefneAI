@@ -40,6 +40,7 @@ public sealed class CommandDispatcher(
                 ModelSystemPrompt = modelDto.ModelSystemPrompt,
                 ModelDescription = modelDto.ModelDescription,
                 ModelInstructions = modelDto.ModelInstructions,
+                ModelPurpose = modelDto.ModelPurpose,
                 Temperature = modelDto.Temperature,
                 ApiKey = modelDto.ApiKey,
                 Endpoint = modelDto.Endpoint,
