@@ -93,8 +93,7 @@ namespace DefneAI.Infrastructure.InitializerService
             OpenAIPromptExecutionSettings settings = new()
             {
                 ServiceId = CLIBrainServiceId,
-                Temperature = 0,
-                ResponseFormat = "json_object"
+                Temperature = 0
             };
 
             cliBrain = new ChatCompletionAgent
@@ -105,8 +104,8 @@ namespace DefneAI.Infrastructure.InitializerService
                 Arguments = new KernelArguments(settings),
                 Instructions =
                     "Classify the user's prompt according to the criteria supplied in each request. " +
-                    "Return only the requested JSON object. " +
-                    "Do not add markdown, explanations, or additional properties."
+                    "Return only the single value requested by the criteria. " +
+                    "Do not add JSON, quotes, markdown, or explanations."
             };
 
             return cliBrain;

@@ -1,80 +1,70 @@
-using DefneAI.Application.PromptFilter;
-using DefneAI.Application.ExecutionService;
+using System.Text;
 using DefneAI.Application.InitializerService;
-using DefneAI.Application.Repository;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
-using DefneAI.Infrastructure.ExecutionService;
-using DefneAI.Infrastructure.PromptAnalysis;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Infrastructure.ActionSecurityLevelService;
 
 public sealed class ActionSecurityLevelService(
-    IModelInitializerService modelInitializerService,
-    CodingModelExecutionService codingModelExecutionService,
-    OfficeTaskModelExecutionService officeTaskModelExecutionService,
-    WebSearchModelExecutionService webSearchModelExecutionService,
-    GeneralChatModelExecutionService generalChatModelExecutionService,
-    IPromptRepository promptRepository) : IPromptFilter
+    IModelInitializerService modelInitializerService) : IPromptFilter
 {
-    public async Task<string> ControlAsync(
+    public int Priority => 3;
+
+    public async Task ControlAsync(
         Prompt prompt,
-        ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
-        ArgumentNullException.ThrowIfNull(chatHistoryThread);
         AITaskType intent = prompt.PromptIntent
             ?? throw new InvalidOperationException("Prompt intent has not been assigned.");
         PromptLevel level = prompt.PromptLevel
             ?? throw new InvalidOperationException("Prompt level has not been assigned.");
 
-        string criteria = $"""
+        string classificationPrompt = $"""
             Classify only the security risk of the action requested by the user.
             The prompt intent is {intent} and its complexity level is {level}.
-            Allowed values:
+            Choose exactly one of these values:
             - LOW: read-only work, generating an answer, or reversible chat-session navigation.
             - MEDIUM: reversible local file changes or non-destructive local execution.
             - HIGH: destructive deletion, persistent model configuration, sensitive database changes, or external side effects.
             - EXTRAHIGH: shell or administrator commands, credentials, secrets, or hard-to-reverse system changes.
             Examples:
-            - "C# metodu yaz ve cevapta göster" is LOW.
-            - "C# kodunu projeye ekle" is MEDIUM.
-            - "/modelekle ..." and "/modelsil ..." are HIGH.
-            - "PowerShell komutu çalıştır" is EXTRAHIGH.
+            - Showing generated code only in the answer is LOW.
+            - Adding generated code to the project is MEDIUM.
+            - "/modelekle ...", "/modelsil ...", and "/chatsil ..." are HIGH.
+            - Running a PowerShell command is EXTRAHIGH.
             - "/yenichat", "/sohbetler", and "/chatsec ..." are LOW.
-            - "/chatsil ..." is HIGH.
-            Complexity must not lower or raise the security result by itself.
+            Complexity must not change the security result by itself.
+            Return only the selected value without JSON, quotes, markdown, or explanation.
+
+            User prompt:
+            {prompt.Content}
             """;
+        StringBuilder responseBuilder = new();
+        ChatHistoryAgentThread analysisThread = new();
 
-        prompt.ActionSecurityLevel =
-            await PromptClassificationClient.AnalyzeAsync<ActionSecurityLevel>(
-                modelInitializerService.GetCLIBrain(),
-                prompt.Content,
-                criteria,
-                "actionSecurityLevel",
-                cancellationToken);
-        await promptRepository.UpdateAsync(prompt, cancellationToken);
-        IModelExecutionService executionService = intent switch
+        await foreach (AgentResponseItem<ChatMessageContent> response in
+            modelInitializerService.GetCLIBrain().InvokeAsync(
+                classificationPrompt,
+                thread: analysisThread,
+                cancellationToken: cancellationToken))
         {
-            AITaskType.Coding => codingModelExecutionService,
-            AITaskType.OfficeTask => officeTaskModelExecutionService,
-            AITaskType.WebSearch => webSearchModelExecutionService,
-            AITaskType.GeneralChat => generalChatModelExecutionService,
-            _ => throw new InvalidOperationException(
-                $"Unsupported AI task type: {intent}.")
-        };
+            responseBuilder.Append(response.Message.Content);
+        }
 
-        return prompt.ActionSecurityLevel == ActionSecurityLevel.LOW
-            ? await executionService.ExecuteLowSecurityAsync(
-                prompt,
-                chatHistoryThread,
-                cancellationToken)
-            : await executionService.ExecuteElevatedSecurityAsync(
-                prompt,
-                chatHistoryThread,
-                cancellationToken);
+        string modelResponse = responseBuilder.ToString().Trim();
+        prompt.ActionSecurityLevel = modelResponse.ToUpperInvariant() switch
+        {
+            "LOW" => ActionSecurityLevel.LOW,
+            "MEDIUM" => ActionSecurityLevel.MEDIUM,
+            "HIGH" => ActionSecurityLevel.HIGH,
+            "EXTRAHIGH" => ActionSecurityLevel.EXTRAHIGH,
+            _ => throw new InvalidOperationException(
+                $"Action security level model returned an invalid value: '{modelResponse}'.")
+        };
     }
 }

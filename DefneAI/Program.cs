@@ -43,13 +43,14 @@ services.AddScoped<IPromptRepository, PromptRepository>();
 services.AddScoped<IAIResponseRepository, AIResponseRepository>();
 services.AddSingleton<IChatSessionService, ChatSessionService>();
 services.AddScoped<IModelInitializerService, ModelInitializerService>();
-services.AddScoped<ActionSecurityLevelService>();
-services.AddScoped<PromptLevelService>();
 services.AddScoped<IPromptFilter, PromptIntentService>();
-services.AddScoped<CodingModelExecutionService>();
-services.AddScoped<OfficeTaskModelExecutionService>();
-services.AddScoped<WebSearchModelExecutionService>();
-services.AddScoped<GeneralChatModelExecutionService>();
+services.AddScoped<IPromptFilter, PromptLevelService>();
+services.AddScoped<IPromptFilter, ActionSecurityLevelService>();
+services.AddScoped<PromptFilterPipeline>();
+services.AddScoped<IModelExecutionService, CodingModelExecutionService>();
+services.AddScoped<IModelExecutionService, OfficeTaskModelExecutionService>();
+services.AddScoped<IModelExecutionService, WebSearchModelExecutionService>();
+services.AddScoped<IModelExecutionService, GeneralChatModelExecutionService>();
 services.AddScoped<DefneAgentRouter>();
 string? databaseConnection =
     Environment.GetEnvironmentVariable("DEFNEAI_DB_CONNECTION") ??
