@@ -31,7 +31,7 @@ public sealed class PromptIntentService(
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
 
-        prompt.PromptIntent = await PromptClassificationClient.AnalyzeAsync<PromptIntent>(
+        prompt.PromptIntent = await PromptClassificationClient.AnalyzeAsync<AITaskType>(
             modelInitializerService.GetCLIBrain(),
             prompt.Content,
             Criteria,

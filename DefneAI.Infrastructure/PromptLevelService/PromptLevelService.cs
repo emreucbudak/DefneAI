@@ -20,7 +20,7 @@ public sealed class PromptLevelService(
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
-        PromptIntent intent = prompt.PromptIntent
+        AITaskType intent = prompt.PromptIntent
             ?? throw new InvalidOperationException("Prompt intent has not been assigned.");
 
         string criteria = $"""

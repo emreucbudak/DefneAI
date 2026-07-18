@@ -22,7 +22,7 @@ public sealed class ActionSecurityLevelService(
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt.Content);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
-        PromptIntent intent = prompt.PromptIntent
+        AITaskType intent = prompt.PromptIntent
             ?? throw new InvalidOperationException("Prompt intent has not been assigned.");
         PromptLevel level = prompt.PromptLevel
             ?? throw new InvalidOperationException("Prompt level has not been assigned.");
