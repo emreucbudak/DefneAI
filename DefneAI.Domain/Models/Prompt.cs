@@ -7,6 +7,7 @@ public sealed class Prompt
     public int Id { get; set; }
     public int ChatId { get; set; }
     public string Content { get; set; } = string.Empty;
+    public PromptState State { get; set; } = PromptState.Thinking;
     public AITaskType? PromptIntent { get; set; }
     public PromptLevel? PromptLevel { get; set; }
     public ActionSecurityLevel? ActionSecurityLevel { get; set; }
