@@ -1,6 +1,7 @@
 ﻿using DefneAI.Application.InitializerService;
 using DefneAI.Application.KernelFactory;
 using DefneAI.Application.Repository;
+using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -41,13 +42,16 @@ namespace DefneAI.Infrastructure.InitializerService
             return kernelFactory.CreateKernel(models);
         }
 
-        public async Task<IList<ChatCompletionAgent>> GetChatCompletionAgentsAsync()
+        public async Task<IList<ChatCompletionAgent>> GetChatCompletionAgentsAsync(AITaskType taskType)
         {
             AIModelProvider[] models = await GetActiveModelsAsync();
+            AIModelProvider[] matchingModels = models
+                .Where(model => model.ModelPurpose == taskType)
+                .ToArray();
             Kernel kernel = kernelFactory.GetCachedKernel() ?? kernelFactory.CreateKernel(models);
-            List<ChatCompletionAgent> modelAgents = new(models.Length);
+            List<ChatCompletionAgent> modelAgents = new(matchingModels.Length);
 
-            foreach (AIModelProvider model in models)
+            foreach (AIModelProvider model in matchingModels)
             {
                 OpenAIPromptExecutionSettings prompt = new()
                 {

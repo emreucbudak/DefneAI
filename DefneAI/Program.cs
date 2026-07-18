@@ -1,11 +1,9 @@
 ﻿using System.Text;
 using DefneAI.Application.ExecutionService;
-using DefneAI.Application.ActionSecurityLevelService;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.KernelFactory;
-using DefneAI.Application.PromptIntentService;
-using DefneAI.Application.PromptLevelService;
 using DefneAI.Application.Repository;
 using DefneAI.Application.Router;
 using DefneAI.Infrastructure.ActionSecurityLevelService;
@@ -45,10 +43,13 @@ services.AddScoped<IPromptRepository, PromptRepository>();
 services.AddScoped<IAIResponseRepository, AIResponseRepository>();
 services.AddSingleton<IChatSessionService, ChatSessionService>();
 services.AddScoped<IModelInitializerService, ModelInitializerService>();
-services.AddScoped<IPromptIntentService, PromptIntentService>();
-services.AddScoped<IPromptLevelService, PromptLevelService>();
-services.AddScoped<IActionSecurityLevelService, ActionSecurityLevelService>();
-services.AddScoped<IModelExecutionService, ModelExecutionService>();
+services.AddScoped<ActionSecurityLevelService>();
+services.AddScoped<PromptLevelService>();
+services.AddScoped<IPromptFilter, PromptIntentService>();
+services.AddScoped<CodingModelExecutionService>();
+services.AddScoped<OfficeTaskModelExecutionService>();
+services.AddScoped<WebSearchModelExecutionService>();
+services.AddScoped<GeneralChatModelExecutionService>();
 services.AddScoped<DefneAgentRouter>();
 string? databaseConnection =
     Environment.GetEnvironmentVariable("DEFNEAI_DB_CONNECTION") ??

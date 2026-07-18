@@ -1,6 +1,6 @@
 using DefneAI.Application.InitializerService;
-using DefneAI.Application.PromptIntentService;
-using DefneAI.Application.PromptLevelService;
+using DefneAI.Application.PromptFilter;
+using PromptLevelFilter = DefneAI.Infrastructure.PromptLevelService.PromptLevelService;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using DefneAI.Infrastructure.PromptAnalysis;
@@ -10,7 +10,7 @@ namespace DefneAI.Infrastructure.PromptIntentService;
 
 public sealed class PromptIntentService(
     IModelInitializerService modelInitializerService,
-    IPromptLevelService promptLevelService) : IPromptIntentService
+    PromptLevelFilter promptLevelService) : IPromptFilter
 {
     private const string Criteria = """
         Classify only the user's primary intent.
@@ -22,7 +22,7 @@ public sealed class PromptIntentService(
         Do not classify complexity or security in this step.
         """;
 
-    public async Task<string> ProcessAsync(
+    public async Task<string> ControlAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
@@ -38,7 +38,7 @@ public sealed class PromptIntentService(
             "intent",
             cancellationToken);
 
-        return await promptLevelService.ProcessAsync(
+        return await promptLevelService.ControlAsync(
             prompt,
             chatHistoryThread,
             cancellationToken);
