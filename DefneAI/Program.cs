@@ -6,6 +6,8 @@ using DefneAI.Application.InitializerService;
 using DefneAI.Application.KernelFactory;
 using DefneAI.Application.Repository;
 using DefneAI.Application.Router;
+using DefneAI.Application.PromptStatus;
+using DefneAI.ConsoleUI;
 using DefneAI.Infrastructure.ActionSecurityLevelService;
 using DefneAI.Infrastructure.ChatSession;
 using DefneAI.Infrastructure.ExecutionService;
@@ -18,6 +20,7 @@ using DefneAI.Persistence.Db;
 using DefneAI.Persistence.Repository;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Spectre.Console;
 
 Console.Title = "DefneAI - The AI Assistant for Developers";
 Console.InputEncoding = Encoding.UTF8;
@@ -51,6 +54,7 @@ services.AddScoped<IModelExecutionService, CodingModelExecutionService>();
 services.AddScoped<IModelExecutionService, OfficeTaskModelExecutionService>();
 services.AddScoped<IModelExecutionService, WebSearchModelExecutionService>();
 services.AddScoped<IModelExecutionService, GeneralChatModelExecutionService>();
+services.AddSingleton<IPromptStatusPresenter, SpectrePromptStatusPresenter>();
 services.AddScoped<DefneAgentRouter>();
 string? databaseConnection =
     Environment.GetEnvironmentVariable("DEFNEAI_DB_CONNECTION") ??
@@ -83,23 +87,15 @@ else
 
 while (true)
 {
-    Console.Write("Emre: ");
-    string? userInput = Console.ReadLine();
-    if (userInput is null)
-    {
-        break;
-    }
+    string userInput = AnsiConsole.Ask<string>("[bold deepskyblue1]Emre:[/]");
 
     if (string.IsNullOrWhiteSpace(userInput))
     {
         continue;
     }
 
-    StringBuilder stringBuilder = new();
-    stringBuilder.Append("Düşünüyor... \n");
-    Console.Write(stringBuilder.ToString());
-
     string response = await defne.GetPromptResult(userInput);
-    Console.WriteLine($"Defne: {response}");
-    Console.WriteLine();
+    AnsiConsole.Markup("[bold green]Defne:[/] ");
+    AnsiConsole.WriteLine(response);
+    AnsiConsole.WriteLine();
 }
