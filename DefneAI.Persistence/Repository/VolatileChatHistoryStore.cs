@@ -64,6 +64,7 @@ internal static class VolatileChatHistoryStore
             }
 
             storedPrompt.Content = prompt.Content;
+            storedPrompt.State = prompt.State;
             storedPrompt.PromptIntent = prompt.PromptIntent;
             storedPrompt.PromptLevel = prompt.PromptLevel;
             storedPrompt.ActionSecurityLevel = prompt.ActionSecurityLevel;
