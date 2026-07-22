@@ -6,8 +6,8 @@ using DefneAI.Application.InitializerService;
 using DefneAI.Application.KernelFactory;
 using DefneAI.Application.Repository;
 using DefneAI.Application.Router;
-using DefneAI.Application.PromptStatus;
-using DefneAI.ConsoleUI;
+using DefneAI.Application.PromptStates;
+using DefneAI.ConsoleUI.PromptStates;
 using DefneAI.Infrastructure.ActionSecurityLevelService;
 using DefneAI.Infrastructure.ChatSession;
 using DefneAI.Infrastructure.ExecutionService;
@@ -54,7 +54,7 @@ services.AddScoped<IModelExecutionService, CodingModelExecutionService>();
 services.AddScoped<IModelExecutionService, OfficeTaskModelExecutionService>();
 services.AddScoped<IModelExecutionService, WebSearchModelExecutionService>();
 services.AddScoped<IModelExecutionService, GeneralChatModelExecutionService>();
-services.AddSingleton<IPromptStatusPresenter, SpectrePromptStatusPresenter>();
+services.AddScoped<IContext, PromptStateContext>();
 services.AddScoped<DefneAgentRouter>();
 string? databaseConnection =
     Environment.GetEnvironmentVariable("DEFNEAI_DB_CONNECTION") ??
