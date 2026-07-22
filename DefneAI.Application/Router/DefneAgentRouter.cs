@@ -2,7 +2,7 @@ using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ExecutionService;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.Repository;
-using DefneAI.Application.PromptStatus;
+using DefneAI.Application.PromptStates;
 using DefneAI.Domain.Models;
 using DefneAI.Domain.Enums;
 using Microsoft.SemanticKernel.Agents;
@@ -14,7 +14,7 @@ namespace DefneAI.Application.Router
         IEnumerable<IModelExecutionService> modelExecutionServices,
         IChatSessionService chatSessionService,
         IPromptRepository promptRepository,
-        IPromptStatusPresenter promptStatusPresenter)
+        IContext context)
     {
         private readonly IReadOnlyDictionary<AITaskType, IModelExecutionService> executionServices =
             modelExecutionServices.ToDictionary(service => service.TaskType);
@@ -39,8 +39,8 @@ namespace DefneAI.Application.Router
 
             try
             {
-                await promptStatusPresenter.ShowWhileAsync(
-                    PromptState.Thinking,
+                context.State.TransitionTo(context, promptRecord.State);
+                await context.State.WriteAsync(
                     () => promptFilterPipeline.ControlAsync(
                         promptRecord,
                         cancellationToken));
@@ -54,34 +54,41 @@ namespace DefneAI.Application.Router
                         "Action security level has not been assigned.");
                 IModelExecutionService executionService = GetExecutionService(taskType);
 
+                context.State.TransitionTo(context, PromptState.Executing);
                 promptRecord.State = PromptState.Executing;
                 await promptRepository.UpdateAsync(promptRecord, cancellationToken);
 
-                string response = await promptStatusPresenter.ShowWhileAsync(
-                    PromptState.Executing,
-                    () => securityLevel == ActionSecurityLevel.LOW
-                        ? executionService.ExecuteLowSecurityAsync(
-                            promptRecord,
-                            ChatHistoryThread,
-                            cancellationToken)
-                        : executionService.ExecuteElevatedSecurityAsync(
-                            promptRecord,
-                            ChatHistoryThread,
-                            cancellationToken));
+                string? response = null;
+                await context.State.WriteAsync(async () =>
+                {
+                    response = securityLevel == ActionSecurityLevel.LOW
+                        ? await executionService.ExecuteLowSecurityAsync(
+                              promptRecord,
+                              ChatHistoryThread,
+                              cancellationToken)
+                        : await executionService.ExecuteElevatedSecurityAsync(
+                              promptRecord,
+                              ChatHistoryThread,
+                              cancellationToken);
+                });
 
+                context.State.TransitionTo(context, PromptState.Completed);
                 promptRecord.State = PromptState.Completed;
                 await promptRepository.UpdateAsync(promptRecord, cancellationToken);
-                promptStatusPresenter.Show(PromptState.Completed);
+                await context.State.WriteAsync();
 
-                return response;
+                return response
+                    ?? throw new InvalidOperationException(
+                        "Execution service returned no response.");
             }
             catch
             {
+                context.State.TransitionTo(context, PromptState.Failed);
                 promptRecord.State = PromptState.Failed;
                 await promptRepository.UpdateAsync(
                     promptRecord,
                     CancellationToken.None);
-                promptStatusPresenter.Show(PromptState.Failed);
+                await context.State.WriteAsync();
                 throw;
             }
         }
