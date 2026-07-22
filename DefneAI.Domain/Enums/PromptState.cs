@@ -5,5 +5,6 @@ namespace DefneAI.Domain.Enums
         Thinking,
         Executing,
         Completed,
+        Failed,
     }
 }
