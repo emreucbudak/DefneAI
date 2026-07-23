@@ -7,6 +7,7 @@ using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using Spectre.Console;
 
 namespace DefneAI.Infrastructure.ExecutionService;
 
@@ -66,13 +67,15 @@ public sealed class WebSearchModelExecutionService(
             isProposal: true,
             cancellationToken);
 
-        Console.WriteLine($"™nerilen ‡”zm:{Environment.NewLine}{proposedSolution}");
-        Console.Write("€”zm uygulansn m? (y/n): ");
-        string? permission = Console.ReadLine()?.Trim();
+        AnsiConsole.MarkupLine("[bold yellow]Ã–nerilen Ã§Ã¶zÃ¼m:[/]");
+        AnsiConsole.WriteLine(proposedSolution);
+        bool isApproved = AnsiConsole.Confirm(
+            "[bold deepskyblue1]Ã‡Ã¶zÃ¼m uygulansÄ±n mÄ±?[/]",
+            defaultValue: false);
 
-        if (!string.Equals(permission, "y", StringComparison.OrdinalIgnoreCase))
+        if (!isApproved)
         {
-            return "˜Ÿlem kullanc tarafndan onaylanmad; ”nerilen ‡”zm uygulanmad.";
+            return "Ä°ÅŸlem kullanÄ±cÄ± tarafÄ±ndan onaylanmadÄ±; Ã¶nerilen Ã§Ã¶zÃ¼m uygulanmadÄ±.";
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -115,7 +118,7 @@ public sealed class WebSearchModelExecutionService(
         ChatCompletionAgent? agent = agents.FirstOrDefault();
         if (agent is null)
         {
-            return "€alŸtrlabilir bir AI modeli bulunamad.";
+            return "Ã‡alÄ±ÅŸtÄ±rÄ±labilir bir AI modeli bulunamadÄ±.";
         }
 
         StringBuilder responseBuilder = new();
@@ -130,7 +133,7 @@ public sealed class WebSearchModelExecutionService(
         string result = responseBuilder.ToString().Trim();
         if (string.IsNullOrWhiteSpace(result))
         {
-            return "AI modeli bir sonu‡ retmedi.";
+            return "AI modeli bir sonuÃ§ Ã¼retmedi.";
         }
 
         await aiResponseRepository.AddAsync(
