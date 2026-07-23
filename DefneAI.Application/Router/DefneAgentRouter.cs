@@ -1,6 +1,6 @@
 using DefneAI.Application.PromptFilter;
-using DefneAI.Application.ExecutionService;
 using DefneAI.Application.ChatSession;
+using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Application.PromptStates;
 using DefneAI.Domain.Models;
@@ -11,13 +11,13 @@ namespace DefneAI.Application.Router
 {
     public sealed class DefneAgentRouter(
         PromptFilterPipeline promptFilterPipeline,
-        IEnumerable<IModelExecutionService> modelExecutionServices,
+        IEnumerable<IPromptStrategy> promptStrategies,
         IChatSessionService chatSessionService,
         IPromptRepository promptRepository,
         IContext context)
     {
-        private readonly IReadOnlyDictionary<AITaskType, IModelExecutionService> executionServices =
-            modelExecutionServices.ToDictionary(service => service.TaskType);
+        private readonly IReadOnlyList<IPromptStrategy> registeredStrategies =
+            promptStrategies.ToArray();
 
         public ChatHistoryAgentThread ChatHistoryThread =>
             chatSessionService.ChatHistoryThread;
@@ -46,13 +46,10 @@ namespace DefneAI.Application.Router
                         cancellationToken));
                 await promptRepository.UpdateAsync(promptRecord, cancellationToken);
 
-                AITaskType taskType = promptRecord.PromptIntent
+                AITaskType promptIntent = promptRecord.PromptIntent
                     ?? throw new InvalidOperationException(
                         "Prompt intent has not been assigned.");
-                ActionSecurityLevel securityLevel = promptRecord.ActionSecurityLevel
-                    ?? throw new InvalidOperationException(
-                        "Action security level has not been assigned.");
-                IModelExecutionService executionService = GetExecutionService(taskType);
+                IPromptStrategy promptStrategy = GetPromptStrategy(promptIntent);
 
                 context.State.TransitionTo(context, PromptState.Executing);
                 promptRecord.State = PromptState.Executing;
@@ -61,15 +58,10 @@ namespace DefneAI.Application.Router
                 string? response = null;
                 await context.State.WriteAsync(async () =>
                 {
-                    response = securityLevel == ActionSecurityLevel.LOW
-                        ? await executionService.ExecuteLowSecurityAsync(
-                              promptRecord,
-                              ChatHistoryThread,
-                              cancellationToken)
-                        : await executionService.ExecuteElevatedSecurityAsync(
-                              promptRecord,
-                              ChatHistoryThread,
-                              cancellationToken);
+                    response = await promptStrategy.ExecutionAsync(
+                        promptRecord,
+                        ChatHistoryThread,
+                        cancellationToken);
                 });
 
                 context.State.TransitionTo(context, PromptState.Completed);
@@ -79,7 +71,7 @@ namespace DefneAI.Application.Router
 
                 return response
                     ?? throw new InvalidOperationException(
-                        "Execution service returned no response.");
+                        "Prompt strategy returned no response.");
             }
             catch
             {
@@ -93,17 +85,25 @@ namespace DefneAI.Application.Router
             }
         }
 
-        private IModelExecutionService GetExecutionService(AITaskType taskType)
+        private IPromptStrategy GetPromptStrategy(AITaskType promptIntent)
         {
-            return taskType switch
+            return promptIntent switch
             {
-                AITaskType.Coding => executionServices[AITaskType.Coding],
-                AITaskType.OfficeTask => executionServices[AITaskType.OfficeTask],
-                AITaskType.WebSearch => executionServices[AITaskType.WebSearch],
-                AITaskType.GeneralChat => executionServices[AITaskType.GeneralChat],
+                AITaskType.Coding => GetRequiredStrategy(AITaskType.Coding),
+                AITaskType.OfficeTask => GetRequiredStrategy(AITaskType.OfficeTask),
+                AITaskType.WebSearch => GetRequiredStrategy(AITaskType.WebSearch),
+                AITaskType.GeneralChat => GetRequiredStrategy(AITaskType.GeneralChat),
                 _ => throw new InvalidOperationException(
-                    $"Unsupported AI task type: {taskType}.")
+                    $"Unsupported prompt intent: {promptIntent}.")
             };
+        }
+
+        private IPromptStrategy GetRequiredStrategy(AITaskType promptIntent)
+        {
+            return registeredStrategies.SingleOrDefault(
+                       strategy => strategy.Intent == promptIntent)
+                   ?? throw new InvalidOperationException(
+                       $"No prompt strategy is registered for intent '{promptIntent}'.");
         }
     }
 }

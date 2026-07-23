@@ -1,9 +1,9 @@
 ﻿using System.Text;
-using DefneAI.Application.ExecutionService;
 using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.KernelFactory;
+using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Application.Router;
 using DefneAI.Application.PromptStates;
@@ -50,10 +50,10 @@ services.AddScoped<IPromptFilter, PromptIntentService>();
 services.AddScoped<IPromptFilter, PromptLevelService>();
 services.AddScoped<IPromptFilter, ActionSecurityLevelService>();
 services.AddScoped<PromptFilterPipeline>();
-services.AddScoped<IModelExecutionService, CodingModelExecutionService>();
-services.AddScoped<IModelExecutionService, OfficeTaskModelExecutionService>();
-services.AddScoped<IModelExecutionService, WebSearchModelExecutionService>();
-services.AddScoped<IModelExecutionService, GeneralChatModelExecutionService>();
+services.AddScoped<IPromptStrategy, CodingModelExecutionService>();
+services.AddScoped<IPromptStrategy, OfficeTaskModelExecutionService>();
+services.AddScoped<IPromptStrategy, WebSearchModelExecutionService>();
+services.AddScoped<IPromptStrategy, GeneralChatModelExecutionService>();
 services.AddScoped<IContext, PromptStateContext>();
 services.AddScoped<DefneAgentRouter>();
 string? databaseConnection =
