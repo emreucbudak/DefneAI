@@ -89,21 +89,17 @@ namespace DefneAI.Application.Router
         {
             return promptIntent switch
             {
-                AITaskType.Coding => GetRequiredStrategy(AITaskType.Coding),
-                AITaskType.OfficeTask => GetRequiredStrategy(AITaskType.OfficeTask),
-                AITaskType.WebSearch => GetRequiredStrategy(AITaskType.WebSearch),
-                AITaskType.GeneralChat => GetRequiredStrategy(AITaskType.GeneralChat),
+                AITaskType.Coding => registeredStrategies.Single(
+                    strategy => strategy.Intent == AITaskType.Coding),
+                AITaskType.OfficeTask => registeredStrategies.Single(
+                    strategy => strategy.Intent == AITaskType.OfficeTask),
+                AITaskType.WebSearch => registeredStrategies.Single(
+                    strategy => strategy.Intent == AITaskType.WebSearch),
+                AITaskType.GeneralChat => registeredStrategies.Single(
+                    strategy => strategy.Intent == AITaskType.GeneralChat),
                 _ => throw new InvalidOperationException(
                     $"Unsupported prompt intent: {promptIntent}.")
             };
-        }
-
-        private IPromptStrategy GetRequiredStrategy(AITaskType promptIntent)
-        {
-            return registeredStrategies.SingleOrDefault(
-                       strategy => strategy.Intent == promptIntent)
-                   ?? throw new InvalidOperationException(
-                       $"No prompt strategy is registered for intent '{promptIntent}'.");
         }
     }
 }
