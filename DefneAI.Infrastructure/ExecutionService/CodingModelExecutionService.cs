@@ -1,7 +1,7 @@
 using System.Text;
 using DefneAI.Application.Commands;
-using DefneAI.Application.ExecutionService;
 using DefneAI.Application.InitializerService;
+using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
@@ -14,17 +14,35 @@ namespace DefneAI.Infrastructure.ExecutionService;
 public sealed class CodingModelExecutionService(
     ICommandDispatcher commandDispatcher,
     IModelInitializerService modelInitializerService,
-    IAIResponseRepository aiResponseRepository) : IModelExecutionService
+    IAIResponseRepository aiResponseRepository) : IPromptStrategy
 {
-    public AITaskType TaskType => AITaskType.Coding;
+    public AITaskType Intent => AITaskType.Coding;
 
-    public async Task<string> ExecuteLowSecurityAsync(
+    public Task<string> ExecutionAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken = default)
     {
         Validate(prompt, chatHistoryThread, cancellationToken);
 
+        return prompt.ActionSecurityLevel switch
+        {
+            ActionSecurityLevel.LOW => ExecuteLowSecurityAsync(
+                prompt,
+                chatHistoryThread,
+                cancellationToken),
+            _ => ExecuteElevatedSecurityAsync(
+                prompt,
+                chatHistoryThread,
+                cancellationToken)
+        };
+    }
+
+    private async Task<string> ExecuteLowSecurityAsync(
+        Prompt prompt,
+        ChatHistoryAgentThread chatHistoryThread,
+        CancellationToken cancellationToken)
+    {
         if (commandDispatcher.IsCommand(prompt.Content))
         {
             return await commandDispatcher.ExecuteAsync(
@@ -40,13 +58,11 @@ public sealed class CodingModelExecutionService(
             cancellationToken);
     }
 
-    public async Task<string> ExecuteElevatedSecurityAsync(
+    private async Task<string> ExecuteElevatedSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        Validate(prompt, chatHistoryThread, cancellationToken);
-
         string proposalPrompt = $"""
             You are in proposal-only mode.
             Analyze the user's request and propose a concrete solution.
@@ -114,7 +130,7 @@ public sealed class CodingModelExecutionService(
         CancellationToken cancellationToken)
     {
         IList<ChatCompletionAgent> agents =
-            await modelInitializerService.GetChatCompletionAgentsAsync(TaskType);
+            await modelInitializerService.GetChatCompletionAgentsAsync(Intent);
         ChatCompletionAgent? agent = agents.FirstOrDefault();
         if (agent is null)
         {
@@ -168,10 +184,10 @@ public sealed class CodingModelExecutionService(
                 "Prompt analysis must be completed before model execution.");
         }
 
-        if (prompt.PromptIntent != TaskType)
+        if (prompt.PromptIntent != Intent)
         {
             throw new InvalidOperationException(
-                $"Prompt intent '{prompt.PromptIntent}' does not match execution task type '{TaskType}'.");
+                $"Prompt intent '{prompt.PromptIntent}' does not match strategy intent '{Intent}'.");
         }
     }
 }
