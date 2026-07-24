@@ -1,11 +1,10 @@
-using System.Text;
 using DefneAI.Application.Commands;
+using DefneAI.Application.Helpers;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
-using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Spectre.Console;
 
@@ -131,22 +130,38 @@ public sealed class OfficeTaskModelExecutionService(
     {
         IList<ChatCompletionAgent> agents =
             await modelInitializerService.GetChatCompletionAgentsAsync(Intent);
-        ChatCompletionAgent? agent = agents.FirstOrDefault();
-        if (agent is null)
+        if (agents.Count == 0)
         {
             return "Çalıştırılabilir bir AI modeli bulunamadı.";
         }
 
-        StringBuilder responseBuilder = new();
-        await foreach (AgentResponseItem<ChatMessageContent> response in agent.InvokeAsync(
-            executionPrompt,
-            thread: chatHistoryThread,
-            cancellationToken: cancellationToken))
+        PromptLevelExecutionResult executionResult = prompt.PromptLevel switch
         {
-            responseBuilder.Append(response.Message.Content);
-        }
+            PromptLevel.LOW => await PromptLevelExecutionHelper.LowExecuteAsync(
+                agents,
+                executionPrompt,
+                chatHistoryThread,
+                cancellationToken),
+            PromptLevel.MEDIUM => await PromptLevelExecutionHelper.MediumExecuteAsync(
+                agents,
+                executionPrompt,
+                chatHistoryThread,
+                cancellationToken),
+            PromptLevel.HIGH => await PromptLevelExecutionHelper.HighExecuteAsync(
+                agents,
+                executionPrompt,
+                chatHistoryThread,
+                cancellationToken),
+            PromptLevel.EXTRAHIGH => await PromptLevelExecutionHelper.ExtraHighExecuteAsync(
+                agents,
+                executionPrompt,
+                chatHistoryThread,
+                cancellationToken),
+            _ => throw new ArgumentOutOfRangeException()
+        };
 
-        string result = responseBuilder.ToString().Trim();
+        ChatCompletionAgent agent = executionResult.Agent;
+        string result = executionResult.Content;
         if (string.IsNullOrWhiteSpace(result))
         {
             return "AI modeli bir sonuç üretmedi.";
