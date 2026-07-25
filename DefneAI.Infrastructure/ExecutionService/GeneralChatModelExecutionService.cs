@@ -139,21 +139,25 @@ public sealed class GeneralChatModelExecutionService(
         {
             PromptLevel.LOW => await PromptLevelExecutionHelper.LowExecuteAsync(
                 agents,
+                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.MEDIUM => await PromptLevelExecutionHelper.MediumExecuteAsync(
                 agents,
+                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.HIGH => await PromptLevelExecutionHelper.HighExecuteAsync(
                 agents,
+                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.EXTRAHIGH => await PromptLevelExecutionHelper.ExtraHighExecuteAsync(
                 agents,
+                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
