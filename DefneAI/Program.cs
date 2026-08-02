@@ -7,6 +7,7 @@ using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Application.Router;
 using DefneAI.Application.PromptStates;
+using DefneAI.ConsoleUI;
 using DefneAI.ConsoleUI.PromptStates;
 using DefneAI.Infrastructure.ActionSecurityLevelService;
 using DefneAI.Infrastructure.ChatSession;
@@ -30,6 +31,8 @@ if (!Console.IsOutputRedirected)
     Console.BackgroundColor = ConsoleColor.Black;
     Console.Clear();
 }
+
+using ConsoleChatUi consoleUi = new();
 
 /*
 DefneAI is an AI assistant designed to help developers with various tasks. It can automate application management, provide code suggestions, and assist in debugging. The assistant leverages the power of AI to enhance productivity and streamline development workflows.
@@ -87,7 +90,7 @@ else
 
 while (true)
 {
-    string userInput = AnsiConsole.Ask<string>("[bold deepskyblue1]Emre:[/]");
+    string userInput = consoleUi.ReadPrompt();
 
     if (string.IsNullOrWhiteSpace(userInput))
     {
