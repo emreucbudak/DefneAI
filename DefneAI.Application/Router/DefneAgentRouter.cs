@@ -1,24 +1,21 @@
-using DefneAI.Application.PromptFilter;
 using DefneAI.Application.ChatSession;
-using DefneAI.Application.PromptStrategy;
-using DefneAI.Application.Repository;
+using DefneAI.Application.Planning;
+using DefneAI.Application.PromptFilter;
 using DefneAI.Application.PromptStates;
-using DefneAI.Domain.Models;
+using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
+using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel.Agents;
 
 namespace DefneAI.Application.Router
 {
     public sealed class DefneAgentRouter(
         PromptFilterPipeline promptFilterPipeline,
-        IEnumerable<IPromptStrategy> promptStrategies,
         IChatSessionService chatSessionService,
         IPromptRepository promptRepository,
+        IPlanService planService,
         IContext context)
     {
-        private readonly IReadOnlyList<IPromptStrategy> registeredStrategies =
-            promptStrategies.ToArray();
-
         public ChatHistoryAgentThread ChatHistoryThread =>
             chatSessionService.ChatHistoryThread;
 
@@ -46,11 +43,6 @@ namespace DefneAI.Application.Router
                         cancellationToken));
                 await promptRepository.UpdateAsync(promptRecord, cancellationToken);
 
-                AITaskType promptIntent = promptRecord.PromptIntent
-                    ?? throw new InvalidOperationException(
-                        "Prompt intent has not been assigned.");
-                IPromptStrategy promptStrategy = GetPromptStrategy(promptIntent);
-
                 context.State.TransitionTo(context, PromptState.Executing);
                 promptRecord.State = PromptState.Executing;
                 await promptRepository.UpdateAsync(promptRecord, cancellationToken);
@@ -58,7 +50,7 @@ namespace DefneAI.Application.Router
                 string? response = null;
                 await context.State.WriteAsync(async () =>
                 {
-                    response = await promptStrategy.ExecutionAsync(
+                    response = await planService.ExecutePlanAsync(
                         promptRecord,
                         ChatHistoryThread,
                         cancellationToken);
@@ -83,23 +75,6 @@ namespace DefneAI.Application.Router
                 await context.State.WriteAsync();
                 throw;
             }
-        }
-
-        private IPromptStrategy GetPromptStrategy(AITaskType promptIntent)
-        {
-            return promptIntent switch
-            {
-                AITaskType.Coding => registeredStrategies.Single(
-                    strategy => strategy.Intent == AITaskType.Coding),
-                AITaskType.OfficeTask => registeredStrategies.Single(
-                    strategy => strategy.Intent == AITaskType.OfficeTask),
-                AITaskType.WebSearch => registeredStrategies.Single(
-                    strategy => strategy.Intent == AITaskType.WebSearch),
-                AITaskType.GeneralChat => registeredStrategies.Single(
-                    strategy => strategy.Intent == AITaskType.GeneralChat),
-                _ => throw new InvalidOperationException(
-                    $"Unsupported prompt intent: {promptIntent}.")
-            };
         }
     }
 }

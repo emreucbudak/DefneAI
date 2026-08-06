@@ -53,6 +53,8 @@ services.AddScoped<IPromptFilter, PromptIntentService>();
 services.AddScoped<IPromptFilter, PromptLevelService>();
 services.AddScoped<IPromptFilter, ActionSecurityLevelService>();
 services.AddScoped<PromptFilterPipeline>();
+services.AddScoped<DefneAI.Application.Planning.IPlanService,
+    DefneAI.Infrastructure.Planning.PlanService>();
 services.AddScoped<IPromptStrategy, CodingModelExecutionService>();
 services.AddScoped<IPromptStrategy, OfficeTaskModelExecutionService>();
 services.AddScoped<IPromptStrategy, WebSearchModelExecutionService>();

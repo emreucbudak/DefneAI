@@ -132,32 +132,29 @@ public sealed class GeneralChatModelExecutionService(
             await modelInitializerService.GetChatCompletionAgentsAsync(Intent);
         if (agents.Count == 0)
         {
-            return "Çalıştırılabilir bir AI modeli bulunamadı.";
+            throw new InvalidOperationException(
+                "Çalıştırılabilir bir AI modeli bulunamadı.");
         }
 
         PromptLevelExecutionResult executionResult = prompt.PromptLevel switch
         {
             PromptLevel.LOW => await PromptLevelExecutionHelper.LowExecuteAsync(
                 agents,
-                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.MEDIUM => await PromptLevelExecutionHelper.MediumExecuteAsync(
                 agents,
-                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.HIGH => await PromptLevelExecutionHelper.HighExecuteAsync(
                 agents,
-                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
             PromptLevel.EXTRAHIGH => await PromptLevelExecutionHelper.ExtraHighExecuteAsync(
                 agents,
-                prompt,
                 executionPrompt,
                 chatHistoryThread,
                 cancellationToken),
@@ -168,7 +165,8 @@ public sealed class GeneralChatModelExecutionService(
         string result = executionResult.Content;
         if (string.IsNullOrWhiteSpace(result))
         {
-            return "AI modeli bir sonuç üretmedi.";
+            throw new InvalidOperationException(
+                "AI modeli bir sonuç üretmedi.");
         }
 
         await aiResponseRepository.AddAsync(
