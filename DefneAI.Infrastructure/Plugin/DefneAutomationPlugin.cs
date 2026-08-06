@@ -17,30 +17,30 @@ namespace DefneAI.Infrastructure.Plugin
         private const int YouTubeSearchResultLimit = 8;
 
         [KernelFunction]
-        [Description("Verilen HTTP veya HTTPS linkini varsayilan web tarayicisinda acar. Yalnizca sayfayi acar; tarayici kontrolu yapmaz.")]
+        [Description("Verilen HTTP veya HTTPS bağlantısını varsayılan web tarayıcısında açar. Yalnızca sayfayı açar; tarayıcı kontrolü yapmaz.")]
         public string OpenWebLink(string url)
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) ||
                 (uri.Scheme != Uri.UriSchemeHttp &&
                  uri.Scheme != Uri.UriSchemeHttps))
             {
-                return "Gecerli bir HTTP veya HTTPS linki belirtilmelidir.";
+                return "Geçerli bir HTTP veya HTTPS bağlantısı belirtilmelidir.";
             }
 
             return OpenUrlInDefaultBrowser(
                 uri.AbsoluteUri,
-                $"Link '{uri.AbsoluteUri}'");
+                $"Bağlantı '{uri.AbsoluteUri}'");
         }
 
         [KernelFunction]
-        [Description("YouTube'da video adiyla arama yapar ve secim icin numarali video listesi dondurur. Kullanici video istediginde once bu fonksiyonu cagir, listeyi goster ve secimini sor. Bu fonksiyon video acmaz.")]
+        [Description("YouTube'da video adıyla arama yapar ve seçim için numaralı video listesi döndürür. Kullanıcı video istediğinde önce bu fonksiyonu çağır, listeyi göster ve seçimini sor. Bu fonksiyon video açmaz.")]
         public async Task<string> SearchYouTubeVideos(
             string videoName,
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(videoName))
             {
-                return "YouTube video adi belirtilmelidir.";
+                return "YouTube video adı belirtilmelidir.";
             }
 
             try
@@ -63,12 +63,12 @@ namespace DefneAI.Infrastructure.Plugin
 
                 if (videos.Count == 0)
                 {
-                    return $"'{videoName}' icin YouTube videosu bulunamadi.";
+                    return $"'{videoName}' için YouTube videosu bulunamadı.";
                 }
 
                 List<string> resultLines =
                 [
-                    $"YouTube'da '{videoName}' icin bulunan videolar:"
+                    $"YouTube'da '{videoName}' için bulunan videolar:"
                 ];
 
                 for (int index = 0; index < videos.Count; index++)
@@ -79,39 +79,39 @@ namespace DefneAI.Infrastructure.Plugin
                     resultLines.Add(
                         $"   Kanal: {ToSingleLine(video.Author.ChannelTitle)}");
                     resultLines.Add(
-                        $"   Sure: {FormatYouTubeDuration(video.Duration)}");
+                        $"   Süre: {FormatYouTubeDuration(video.Duration)}");
                     resultLines.Add(
                         $"   URL: {video.Url}");
                 }
 
                 resultLines.Add(
-                    $"Kullanicidan 1 ile {videos.Count} arasinda bir video secmesini iste. Secim yapilmadan video acma.");
+                    $"Kullanıcıdan 1 ile {videos.Count} arasında bir video seçmesini iste. Seçim yapılmadan video açma.");
 
                 return string.Join(Environment.NewLine, resultLines);
             }
             catch (OperationCanceledException)
                 when (cancellationToken.IsCancellationRequested)
             {
-                return "YouTube video aramasi iptal edildi.";
+                return "YouTube video araması iptal edildi.";
             }
             catch (Exception ex)
             {
-                return $"YouTube video listesi alinamadi: {ex.Message}";
+                return $"YouTube video listesi alınamadı: {ex.Message}";
             }
         }
 
         [KernelFunction]
-        [Description("Yalnizca kullanici SearchYouTubeVideos listesinden bir video sectikten sonra secilen videonun URL veya kimligini varsayilan tarayicida acar. Video adi aramak icin kullanma; secim olmadan cagirma.")]
+        [Description("Yalnızca kullanıcı SearchYouTubeVideos listesinden bir video seçtikten sonra seçilen videonun URL veya kimliğini varsayılan tarayıcıda açar. Video adı aramak için kullanma; seçim olmadan çağırma.")]
         public string OpenYouTubeVideo(string videoUrlOrId)
         {
             if (string.IsNullOrWhiteSpace(videoUrlOrId))
             {
-                return "YouTube video linki veya kimligi belirtilmelidir.";
+                return "YouTube video bağlantısı veya kimliği belirtilmelidir.";
             }
 
             if (VideoId.TryParse(videoUrlOrId) is not { } videoId)
             {
-                return "Gecerli bir YouTube video linki veya kimligi belirtilmelidir. Video aramak icin once SearchYouTubeVideos kullanilmalidir.";
+                return "Geçerli bir YouTube video bağlantısı veya kimliği belirtilmelidir. Video aramak için önce SearchYouTubeVideos kullanılmalıdır.";
             }
 
             string videoUrl =
@@ -382,11 +382,11 @@ namespace DefneAI.Infrastructure.Plugin
                         UseShellExecute = true
                     });
 
-                return $"{targetDescription} basariyla acildi.";
+                return $"{targetDescription} başarıyla açıldı.";
             }
             catch (Exception ex)
             {
-                return $"{targetDescription} acilamadi: {ex.Message}";
+                return $"{targetDescription} açılamadı: {ex.Message}";
             }
         }
 
