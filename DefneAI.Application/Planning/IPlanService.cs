@@ -6,11 +6,6 @@ namespace DefneAI.Application.Planning;
 
 public interface IPlanService
 {
-    Task<string> ExecutePlanAsync(
-        Prompt prompt,
-        ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default);
-
     Task<PlanDto> CreatePlanAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,

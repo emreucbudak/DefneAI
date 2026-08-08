@@ -1,12 +1,9 @@
 using System.Text;
 using System.Text.Json;
 using DefneAI.Application.DTOs;
+using DefneAI.Application.Helpers;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.Planning;
-using DefneAI.Application.PromptFilter;
-using DefneAI.Application.PromptStrategy;
-using DefneAI.Application.Repository;
-using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
@@ -14,109 +11,8 @@ using Microsoft.SemanticKernel.Agents;
 namespace DefneAI.Infrastructure.Planning;
 
 public sealed class PlanService(
-    IModelInitializerService modelInitializerService,
-    PromptFilterPipeline promptFilterPipeline,
-    IEnumerable<IPromptStrategy> promptStrategies,
-    IPromptRepository promptRepository) : IPlanService
+    IModelInitializerService modelInitializerService) : IPlanService
 {
-    private const int FullReplanRetryThreshold = 5;
-
-    private readonly IReadOnlyList<IPromptStrategy> registeredStrategies =
-        promptStrategies.ToArray();
-
-    public async Task<string> ExecutePlanAsync(
-        Prompt prompt,
-        ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default)
-    {
-        Validate(prompt, chatHistoryThread, cancellationToken);
-
-        PlanDto plan = await CreatePlanAsync(
-            prompt,
-            chatHistoryThread,
-            cancellationToken);
-        string? latestResponse = null;
-
-        while (plan.Steps.Length > 0)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            string currentStep = plan.Steps[0];
-            plan.Steps = plan.Steps[1..];
-            Prompt stepPrompt = CreateStepPrompt(prompt, currentStep);
-
-            try
-            {
-                await promptFilterPipeline.ControlAsync(
-                    stepPrompt,
-                    cancellationToken);
-                AITaskType stepIntent = stepPrompt.PromptIntent
-                    ?? throw new InvalidOperationException(
-                        "Plan step intent has not been assigned.");
-                IPromptStrategy promptStrategy = GetPromptStrategy(stepIntent);
-
-                stepPrompt.State = PromptState.Executing;
-                latestResponse = await promptStrategy.ExecutionAsync(
-                    stepPrompt,
-                    chatHistoryThread,
-                    cancellationToken);
-                if (string.IsNullOrWhiteSpace(latestResponse))
-                {
-                    throw new InvalidOperationException(
-                        "The plan step produced no response.");
-                }
-
-                stepPrompt.State = PromptState.Completed;
-                plan.RetryCount = 0;
-                plan.LastFailedStep = string.Empty;
-                plan.FailureReason = string.Empty;
-            }
-            catch (OperationCanceledException)
-                when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                stepPrompt.State = PromptState.Failed;
-                plan.LastFailedStep = currentStep;
-                plan.FailureReason = exception.Message;
-                plan.RetryCount++;
-            }
-
-            if (stepPrompt.State != PromptState.Failed)
-            {
-                continue;
-            }
-
-            prompt.State = PromptState.Failed;
-            await promptRepository.UpdateAsync(prompt, cancellationToken);
-
-            if (plan.RetryCount >= FullReplanRetryThreshold)
-            {
-                plan = await CreatePlanAsync(
-                    prompt,
-                    chatHistoryThread,
-                    cancellationToken);
-            }
-            else
-            {
-                await RebuildPlanAsync(
-                    prompt,
-                    plan,
-                    chatHistoryThread,
-                    cancellationToken);
-            }
-
-            prompt.State = PromptState.Executing;
-            await promptRepository.UpdateAsync(prompt, cancellationToken);
-        }
-
-        return latestResponse
-            ?? throw new InvalidOperationException(
-                "The execution plan produced no response.");
-    }
-
     public async Task<PlanDto> CreatePlanAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
@@ -136,14 +32,13 @@ public sealed class PlanService(
             {prompt.Content}
             """;
 
-        return new PlanDto
-        {
-            Steps = await CreateStepsAsync(
-                prompt,
-                planningPrompt,
-                chatHistoryThread,
-                cancellationToken)
-        };
+        PlanDto plan = new();
+        plan.Steps.AddRange(await CreateStepsAsync(
+            prompt,
+            planningPrompt,
+            chatHistoryThread,
+            cancellationToken));
+        return plan;
     }
 
     public async Task RebuildPlanAsync(
@@ -157,7 +52,7 @@ public sealed class PlanService(
         ArgumentException.ThrowIfNullOrWhiteSpace(plan.FailureReason);
         Validate(prompt, chatHistoryAgentThread, cancellationToken);
 
-        string remainingSteps = plan.Steps.Length == 0
+        string remainingSteps = plan.Steps.Count == 0
             ? "No unexecuted steps remain."
             : string.Join(
                 Environment.NewLine,
@@ -186,14 +81,17 @@ public sealed class PlanService(
             {remainingSteps}
             """;
 
-        plan.Steps = await CreateStepsAsync(
+        IReadOnlyList<string> rebuiltSteps = await CreateStepsAsync(
             prompt,
             replanningPrompt,
             chatHistoryAgentThread,
             cancellationToken);
+
+        plan.Steps.Clear();
+        plan.Steps.AddRange(rebuiltSteps);
     }
 
-    private async Task<string[]> CreateStepsAsync(
+    private async Task<IReadOnlyList<string>> CreateStepsAsync(
         Prompt prompt,
         string planningPrompt,
         ChatHistoryAgentThread chatHistoryAgentThread,
@@ -210,26 +108,24 @@ public sealed class PlanService(
 
         int agentIndex = Math.Min((int)prompt.PromptLevel!.Value, agents.Count - 1);
         ChatCompletionAgent planningAgent = agents[agentIndex];
+        ChatHistoryAgentThread planningThread =
+            ChatHistoryThreadFactory.CreateCopy(chatHistoryAgentThread);
         StringBuilder responseBuilder = new();
 
         await foreach (AgentResponseItem<ChatMessageContent> response in
             planningAgent.InvokeAsync(
                 planningPrompt,
-                thread: chatHistoryAgentThread,
+                thread: planningThread,
                 cancellationToken: cancellationToken))
         {
             responseBuilder.Append(response.Message.Content);
         }
 
-        return ParseSteps(responseBuilder.ToString());
-    }
+        string modelResponse = responseBuilder.ToString();
+        ArgumentException.ThrowIfNullOrWhiteSpace(modelResponse);
 
-    private static string[] ParseSteps(string response)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(response);
-
-        int arrayStart = response.IndexOf('[');
-        int arrayEnd = response.LastIndexOf(']');
+        int arrayStart = modelResponse.IndexOf('[');
+        int arrayEnd = modelResponse.LastIndexOf(']');
         if (arrayStart < 0 || arrayEnd <= arrayStart)
         {
             throw new InvalidOperationException(
@@ -238,14 +134,14 @@ public sealed class PlanService(
 
         try
         {
-            string[]? parsedSteps = JsonSerializer.Deserialize<string[]>(
-                response[arrayStart..(arrayEnd + 1)]);
-            string[] steps = parsedSteps?
+            List<string>? parsedSteps = JsonSerializer.Deserialize<List<string>>(
+                modelResponse[arrayStart..(arrayEnd + 1)]);
+            List<string> steps = parsedSteps?
                 .Where(step => !string.IsNullOrWhiteSpace(step))
                 .Select(step => step.Trim())
-                .ToArray() ?? [];
+                .ToList() ?? [];
 
-            return steps.Length > 0
+            return steps.Count > 0
                 ? steps
                 : throw new InvalidOperationException(
                     "The planning model returned an empty plan.");
@@ -256,34 +152,6 @@ public sealed class PlanService(
                 "The planning model returned an invalid JSON string array.",
                 exception);
         }
-    }
-
-    private static Prompt CreateStepPrompt(Prompt source, string step)
-    {
-        return new Prompt
-        {
-            Id = source.Id,
-            ChatId = source.ChatId,
-            Content = step,
-            CreatedAtUtc = source.CreatedAtUtc
-        };
-    }
-
-    private IPromptStrategy GetPromptStrategy(AITaskType promptIntent)
-    {
-        return promptIntent switch
-        {
-            AITaskType.Coding => registeredStrategies.Single(
-                strategy => strategy.Intent == AITaskType.Coding),
-            AITaskType.OfficeTask => registeredStrategies.Single(
-                strategy => strategy.Intent == AITaskType.OfficeTask),
-            AITaskType.WebSearch => registeredStrategies.Single(
-                strategy => strategy.Intent == AITaskType.WebSearch),
-            AITaskType.GeneralChat => registeredStrategies.Single(
-                strategy => strategy.Intent == AITaskType.GeneralChat),
-            _ => throw new InvalidOperationException(
-                $"Unsupported prompt intent: {promptIntent}.")
-        };
     }
 
     private static void Validate(

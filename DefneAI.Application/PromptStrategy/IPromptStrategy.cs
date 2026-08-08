@@ -11,5 +11,6 @@ public interface IPromptStrategy
     Task<string> ExecutionAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool persistResponse = true);
 }

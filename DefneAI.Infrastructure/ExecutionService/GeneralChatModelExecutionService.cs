@@ -20,7 +20,8 @@ public sealed class GeneralChatModelExecutionService(
     public Task<string> ExecutionAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool persistResponse = true)
     {
         Validate(prompt, chatHistoryThread, cancellationToken);
 
@@ -29,18 +30,21 @@ public sealed class GeneralChatModelExecutionService(
             ActionSecurityLevel.LOW => ExecuteLowSecurityAsync(
                 prompt,
                 chatHistoryThread,
-                cancellationToken),
+                cancellationToken,
+                persistResponse),
             _ => ExecuteElevatedSecurityAsync(
                 prompt,
                 chatHistoryThread,
-                cancellationToken)
+                cancellationToken,
+                persistResponse)
         };
     }
 
     private async Task<string> ExecuteLowSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool persistResponse)
     {
         if (commandDispatcher.IsCommand(prompt.Content))
         {
@@ -54,13 +58,15 @@ public sealed class GeneralChatModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: false,
+            persistResponse,
             cancellationToken);
     }
 
     private async Task<string> ExecuteElevatedSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool persistResponse)
     {
         string proposalPrompt = $"""
             You are in proposal-only mode.
@@ -80,6 +86,7 @@ public sealed class GeneralChatModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: true,
+            persistResponse,
             cancellationToken);
 
         AnsiConsole.MarkupLine("[bold yellow]Önerilen çözüm:[/]");
@@ -118,6 +125,7 @@ public sealed class GeneralChatModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: false,
+            persistResponse,
             cancellationToken);
     }
 
@@ -126,6 +134,7 @@ public sealed class GeneralChatModelExecutionService(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         bool isProposal,
+        bool persistResponse,
         CancellationToken cancellationToken)
     {
         IList<ChatCompletionAgent> agents =
@@ -169,16 +178,19 @@ public sealed class GeneralChatModelExecutionService(
                 "AI modeli bir sonuç üretmedi.");
         }
 
-        await aiResponseRepository.AddAsync(
-            new AIResponse
-            {
-                ChatId = prompt.ChatId,
-                PromptId = prompt.Id,
-                Content = result,
-                ModelName = agent.Name ?? agent.Id ?? "Unknown",
-                IsProposal = isProposal
-            },
-            cancellationToken);
+        if (persistResponse)
+        {
+            await aiResponseRepository.AddAsync(
+                new AIResponse
+                {
+                    ChatId = prompt.ChatId,
+                    PromptId = prompt.Id,
+                    Content = result,
+                    ModelName = agent.Name ?? agent.Id ?? "Unknown",
+                    IsProposal = isProposal
+                },
+                cancellationToken);
+        }
 
         return result;
     }
