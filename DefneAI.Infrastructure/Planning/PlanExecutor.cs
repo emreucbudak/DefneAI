@@ -45,6 +45,7 @@ public sealed class PlanExecutor(
                 PromptAnalysisResult stepAnalysis =
                     await promptAnalysisService.AnalyzeAsync(
                         stepPrompt,
+                        executionThread,
                         cancellationToken);
                 IPromptStrategy promptStrategy =
                     registeredStrategies.Single(

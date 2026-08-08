@@ -5,4 +5,5 @@ namespace DefneAI.Application.PromptAnalysis;
 public sealed record PromptAnalysisResult(
     AITaskType Intent,
     PromptLevel Complexity,
-    ActionSecurityLevel SecurityLevel);
+    ActionSecurityLevel SecurityLevel,
+    ExecutionMode Mode);

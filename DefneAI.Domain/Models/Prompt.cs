@@ -66,34 +66,27 @@ public sealed class Prompt
             CreatedAtUtc);
     }
 
-    public void ClassifyIntent(AITaskType intent)
+    public void ApplyAnalysis(
+        AITaskType intent,
+        PromptLevel complexity,
+        ActionSecurityLevel securityLevel)
     {
         EnsureThinking();
-        EnsureNotAssigned(PromptIntent, nameof(PromptIntent));
+        if (PromptIntent is not null ||
+            PromptLevel is not null ||
+            ActionSecurityLevel is not null)
+        {
+            throw new InvalidOperationException(
+                "Prompt analysis has already been applied.");
+        }
+
         EnsureDefined(intent);
+        EnsureDefined(complexity);
+        EnsureDefined(securityLevel);
 
         PromptIntent = intent;
-    }
-
-    public void ClassifyComplexity(PromptLevel level)
-    {
-        EnsureThinking();
-        EnsureAssigned(PromptIntent, nameof(PromptIntent));
-        EnsureNotAssigned(PromptLevel, nameof(PromptLevel));
-        EnsureDefined(level);
-
-        PromptLevel = level;
-    }
-
-    public void ClassifyActionSecurity(ActionSecurityLevel level)
-    {
-        EnsureThinking();
-        EnsureAssigned(PromptIntent, nameof(PromptIntent));
-        EnsureAssigned(PromptLevel, nameof(PromptLevel));
-        EnsureNotAssigned(ActionSecurityLevel, nameof(ActionSecurityLevel));
-        EnsureDefined(level);
-
-        ActionSecurityLevel = level;
+        PromptLevel = complexity;
+        ActionSecurityLevel = securityLevel;
     }
 
     public void StartExecution()
@@ -135,26 +128,6 @@ public sealed class Prompt
         {
             throw new InvalidOperationException(
                 $"A prompt in state '{State}' cannot be classified.");
-        }
-    }
-
-    private static void EnsureAssigned<T>(T? value, string propertyName)
-        where T : struct
-    {
-        if (value is null)
-        {
-            throw new InvalidOperationException(
-                $"{propertyName} must be assigned first.");
-        }
-    }
-
-    private static void EnsureNotAssigned<T>(T? value, string propertyName)
-        where T : struct
-    {
-        if (value is not null)
-        {
-            throw new InvalidOperationException(
-                $"{propertyName} has already been assigned.");
         }
     }
 

@@ -12,7 +12,6 @@ namespace DefneAI.Application.Execution;
 
 public sealed class  ExecutionOrchestrator(
     IPromptAnalysisService promptAnalysisService,
-    IExecutionModePolicy executionModePolicy,
     IEnumerable<IPromptStrategy> promptStrategies,
     IPlanExecutor planExecutor,
     IPromptRepository promptRepository,
@@ -33,17 +32,12 @@ public sealed class  ExecutionOrchestrator(
         try
         {
             PromptAnalysisResult analysis = null!;
-            ExecutionMode executionMode = default;
 
             context.State.TransitionTo(context, PromptState.Thinking);
             await context.State.WriteAsync(async () =>
             {
                 analysis = await promptAnalysisService.AnalyzeAsync(
                     prompt,
-                    cancellationToken);
-                executionMode = await executionModePolicy.DetermineAsync(
-                    prompt,
-                    analysis,
                     request.ChatHistoryThread,
                     cancellationToken);
             });
@@ -56,7 +50,7 @@ public sealed class  ExecutionOrchestrator(
             string? response = null;
             await context.State.WriteAsync(async () =>
             {
-                response = executionMode switch
+                response = analysis.Mode switch
                 {
                     ExecutionMode.Direct => await ExecuteDirectAsync(
                         prompt,
@@ -68,8 +62,8 @@ public sealed class  ExecutionOrchestrator(
                         executionThread,
                         cancellationToken),
                     _ => throw new ArgumentOutOfRangeException(
-                        nameof(executionMode),
-                        executionMode,
+                        nameof(analysis.Mode),
+                        analysis.Mode,
                         "Unsupported execution mode.")
                 };
             });
