@@ -49,7 +49,7 @@ public sealed class PlanExecutor(
                 IPromptStrategy promptStrategy =
                     registeredStrategies.Single(
                         strategy => strategy.Intent == stepAnalysis.Intent);
-                stepPrompt.State = PromptState.Executing;
+                stepPrompt.StartExecution();
                 latestResponse = await promptStrategy.ExecutionAsync(
                     stepPrompt,
                     executionThread,
@@ -61,7 +61,7 @@ public sealed class PlanExecutor(
                         "The plan step produced no response.");
                 }
 
-                stepPrompt.State = PromptState.Completed;
+                stepPrompt.Complete();
                 plan.RetryCount = 0;
                 plan.LastFailedStep = string.Empty;
                 plan.FailureReason = string.Empty;
@@ -73,7 +73,7 @@ public sealed class PlanExecutor(
             }
             catch (Exception exception)
             {
-                stepPrompt.State = PromptState.Failed;
+                stepPrompt.Fail();
                 plan.LastFailedStep = currentStep;
                 plan.FailureReason = exception.Message;
                 plan.RetryCount++;
@@ -106,16 +106,8 @@ public sealed class PlanExecutor(
                 "The execution plan produced no response.");
     }
 
-    private static Prompt CreateStepPrompt(Prompt source, string step)
-    {
-        return new Prompt
-        {
-            Id = source.Id,
-            ChatId = source.ChatId,
-            Content = step,
-            CreatedAtUtc = source.CreatedAtUtc
-        };
-    }
+    private static Prompt CreateStepPrompt(Prompt source, string step) =>
+        source.CreateExecutionStep(step);
 
     private static void Validate(
         Prompt prompt,

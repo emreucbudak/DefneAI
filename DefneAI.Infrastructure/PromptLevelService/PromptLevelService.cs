@@ -53,7 +53,7 @@ public sealed class PromptLevelService(
         }
 
         string modelResponse = responseBuilder.ToString().Trim();
-        prompt.PromptLevel = modelResponse.ToUpperInvariant() switch
+        PromptLevel level = modelResponse.ToUpperInvariant() switch
         {
             "LOW" => PromptLevel.LOW,
             "MEDIUM" => PromptLevel.MEDIUM,
@@ -62,5 +62,7 @@ public sealed class PromptLevelService(
             _ => throw new InvalidOperationException(
                 $"Prompt level model returned an invalid value: '{modelResponse}'.")
         };
+
+        prompt.ClassifyComplexity(level);
     }
 }

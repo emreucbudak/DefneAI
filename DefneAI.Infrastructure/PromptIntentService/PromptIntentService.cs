@@ -46,7 +46,7 @@ public sealed class PromptIntentService(
         }
 
         string modelResponse = responseBuilder.ToString().Trim();
-        prompt.PromptIntent = modelResponse.ToUpperInvariant() switch
+        AITaskType intent = modelResponse.ToUpperInvariant() switch
         {
             "CODING" => AITaskType.Coding,
             "OFFICETASK" => AITaskType.OfficeTask,
@@ -55,5 +55,7 @@ public sealed class PromptIntentService(
             _ => throw new InvalidOperationException(
                 $"Prompt intent model returned an invalid value: '{modelResponse}'.")
         };
+
+        prompt.ClassifyIntent(intent);
     }
 }

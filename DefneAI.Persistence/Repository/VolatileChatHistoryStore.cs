@@ -63,11 +63,14 @@ internal static class VolatileChatHistoryStore
                 throw new InvalidOperationException($"Prompt {prompt.Id} was not found.");
             }
 
-            storedPrompt.Content = prompt.Content;
-            storedPrompt.State = prompt.State;
-            storedPrompt.PromptIntent = prompt.PromptIntent;
-            storedPrompt.PromptLevel = prompt.PromptLevel;
-            storedPrompt.ActionSecurityLevel = prompt.ActionSecurityLevel;
+            if (ReferenceEquals(storedPrompt, prompt))
+            {
+                return;
+            }
+
+            chat.Prompts.Remove(storedPrompt);
+            prompt.Chat = chat;
+            chat.Prompts.Add(prompt);
         }
     }
 

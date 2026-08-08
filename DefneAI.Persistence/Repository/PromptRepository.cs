@@ -1,6 +1,7 @@
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
 using DefneAI.Persistence.Db;
+using Microsoft.EntityFrameworkCore;
 
 namespace DefneAI.Persistence.Repository;
 
@@ -22,7 +23,7 @@ public sealed class PromptRepository(ModelDbContext context) : IPromptRepository
         return prompt;
     }
 
-    public async Task UpdateAsync(
+    public async Task SaveAsync(
         Prompt prompt,
         CancellationToken cancellationToken = default)
     {
@@ -34,7 +35,11 @@ public sealed class PromptRepository(ModelDbContext context) : IPromptRepository
             return;
         }
 
-        context.Prompts.Update(prompt);
+        if (context.Entry(prompt).State == EntityState.Detached)
+        {
+            context.Prompts.Update(prompt);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
     }
 }

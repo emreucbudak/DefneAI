@@ -27,11 +27,7 @@ public sealed class  ExecutionOrchestrator(
     {
         Validate(request, cancellationToken);
 
-        Prompt prompt = new()
-        {
-            ChatId = request.ChatId,
-            Content = request.Content
-        };
+        Prompt prompt = Prompt.Create(request.ChatId, request.Content);
         await promptRepository.AddAsync(prompt, cancellationToken);
 
         try
@@ -40,7 +36,6 @@ public sealed class  ExecutionOrchestrator(
             ExecutionMode executionMode = default;
 
             context.State.TransitionTo(context, PromptState.Thinking);
-            prompt.State = PromptState.Thinking;
             await context.State.WriteAsync(async () =>
             {
                 analysis = await promptAnalysisService.AnalyzeAsync(
@@ -52,11 +47,9 @@ public sealed class  ExecutionOrchestrator(
                     request.ChatHistoryThread,
                     cancellationToken);
             });
-            await promptRepository.UpdateAsync(prompt, cancellationToken);
 
             context.State.TransitionTo(context, PromptState.Executing);
-            prompt.State = PromptState.Executing;
-            await promptRepository.UpdateAsync(prompt, cancellationToken);
+            prompt.StartExecution();
 
             ChatHistoryAgentThread executionThread =
                 ChatHistoryThreadFactory.CreateCopy(request.ChatHistoryThread);
@@ -93,8 +86,8 @@ public sealed class  ExecutionOrchestrator(
                 response);
 
             context.State.TransitionTo(context, PromptState.Completed);
-            prompt.State = PromptState.Completed;
-            await promptRepository.UpdateAsync(prompt, cancellationToken);
+            prompt.Complete();
+            await promptRepository.SaveAsync(prompt, cancellationToken);
             await context.State.WriteAsync();
 
             return response;
@@ -102,8 +95,8 @@ public sealed class  ExecutionOrchestrator(
         catch
         {
             context.State.TransitionTo(context, PromptState.Failed);
-            prompt.State = PromptState.Failed;
-            await promptRepository.UpdateAsync(prompt, CancellationToken.None);
+            prompt.Fail();
+            await promptRepository.SaveAsync(prompt, CancellationToken.None);
             await context.State.WriteAsync();
             throw;
         }

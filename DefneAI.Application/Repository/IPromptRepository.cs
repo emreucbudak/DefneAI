@@ -8,7 +8,7 @@ public interface IPromptRepository
         Prompt prompt,
         CancellationToken cancellationToken = default);
 
-    Task UpdateAsync(
+    Task SaveAsync(
         Prompt prompt,
         CancellationToken cancellationToken = default);
 }

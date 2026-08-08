@@ -57,7 +57,7 @@ public sealed class ActionSecurityLevelService(
         }
 
         string modelResponse = responseBuilder.ToString().Trim();
-        prompt.ActionSecurityLevel = modelResponse.ToUpperInvariant() switch
+        ActionSecurityLevel securityLevel = modelResponse.ToUpperInvariant() switch
         {
             "LOW" => ActionSecurityLevel.LOW,
             "MEDIUM" => ActionSecurityLevel.MEDIUM,
@@ -66,5 +66,7 @@ public sealed class ActionSecurityLevelService(
             _ => throw new InvalidOperationException(
                 $"Action security level model returned an invalid value: '{modelResponse}'.")
         };
+
+        prompt.ClassifyActionSecurity(securityLevel);
     }
 }
