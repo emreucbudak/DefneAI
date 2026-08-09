@@ -42,14 +42,17 @@ public sealed class PlanExecutor(
 
             try
             {
-                PromptAnalysisResult stepAnalysis =
-                    await promptAnalysisService.AnalyzeAsync(
-                        stepPrompt,
-                        executionThread,
-                        cancellationToken);
+                await promptAnalysisService.AnalyzeAsync(
+                    stepPrompt,
+                    executionThread,
+                    cancellationToken,
+                    persistChanges: false);
+                AITaskType stepIntent = stepPrompt.PromptIntent
+                    ?? throw new InvalidOperationException(
+                        "Plan step intent analysis produced no result.");
                 IPromptStrategy promptStrategy =
                     registeredStrategies.Single(
-                        strategy => strategy.Intent == stepAnalysis.Intent);
+                        strategy => strategy.Intent == stepIntent);
                 stepPrompt.StartExecution();
                 latestResponse = await promptStrategy.ExecutionAsync(
                     stepPrompt,

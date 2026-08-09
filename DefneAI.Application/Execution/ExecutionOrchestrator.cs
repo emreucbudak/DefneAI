@@ -31,12 +31,10 @@ public sealed class  ExecutionOrchestrator(
 
         try
         {
-            PromptAnalysisResult analysis = null!;
-
             context.State.TransitionTo(context, PromptState.Thinking);
             await context.State.WriteAsync(async () =>
             {
-                analysis = await promptAnalysisService.AnalyzeAsync(
+                await promptAnalysisService.AnalyzeAsync(
                     prompt,
                     request.ChatHistoryThread,
                     cancellationToken);
@@ -50,11 +48,10 @@ public sealed class  ExecutionOrchestrator(
             string? response = null;
             await context.State.WriteAsync(async () =>
             {
-                response = analysis.Mode switch
+                response = prompt.ExecutionMode switch
                 {
                     ExecutionMode.Direct => await ExecuteDirectAsync(
                         prompt,
-                        analysis,
                         executionThread,
                         cancellationToken),
                     ExecutionMode.Planned => await planExecutor.ExecuteAsync(
@@ -62,8 +59,8 @@ public sealed class  ExecutionOrchestrator(
                         executionThread,
                         cancellationToken),
                     _ => throw new ArgumentOutOfRangeException(
-                        nameof(analysis.Mode),
-                        analysis.Mode,
+                        nameof(prompt.ExecutionMode),
+                        prompt.ExecutionMode,
                         "Unsupported execution mode.")
                 };
             });
@@ -98,12 +95,14 @@ public sealed class  ExecutionOrchestrator(
 
     private async Task<string> ExecuteDirectAsync(
         Prompt prompt,
-        PromptAnalysisResult analysis,
         ChatHistoryAgentThread executionThread,
         CancellationToken cancellationToken)
     {
+        AITaskType intent = prompt.PromptIntent
+            ?? throw new InvalidOperationException(
+                "Prompt intent analysis produced no result.");
         IPromptStrategy strategy = registeredStrategies.Single(
-            strategy => strategy.Intent == analysis.Intent);
+            strategy => strategy.Intent == intent);
 
         return await strategy.ExecutionAsync(
             prompt,
