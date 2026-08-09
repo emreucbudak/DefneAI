@@ -5,8 +5,9 @@ namespace DefneAI.Application.PromptAnalysis;
 
 public interface IPromptAnalysisService
 {
-    Task<PromptAnalysisResult> AnalyzeAsync(
+    Task AnalyzeAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool persistChanges = true);
 }

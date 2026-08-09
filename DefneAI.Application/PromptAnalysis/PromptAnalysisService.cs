@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DefneAI.Application.Helpers;
 using DefneAI.Application.InitializerService;
+using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
 using Microsoft.SemanticKernel;
@@ -10,12 +12,22 @@ using Microsoft.SemanticKernel.Agents;
 namespace DefneAI.Application.PromptAnalysis;
 
 public sealed class PromptAnalysisService(
-    IModelInitializerService modelInitializerService) : IPromptAnalysisService
+    IModelInitializerService modelInitializerService,
+    IPromptRepository promptRepository) : IPromptAnalysisService
 {
-    public async Task<PromptAnalysisResult> AnalyzeAsync(
+    private static readonly JsonSerializerOptions AnalysisJsonOptions = new()
+    {
+        Converters =
+        {
+            new JsonStringEnumConverter(allowIntegerValues: false)
+        }
+    };
+
+    public async Task AnalyzeAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool persistChanges = true)
     {
         ArgumentNullException.ThrowIfNull(prompt);
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
@@ -83,31 +95,19 @@ public sealed class PromptAnalysisService(
             responseBuilder.Append(response.Message.Content);
         }
 
-        ModelPromptAnalysis modelAnalysis = ParseModelResponse(
+        ApplyModelResponse(
+            prompt,
             responseBuilder.ToString());
 
-        ExecutionMode executionMode =
-            prompt.Content.TrimStart().StartsWith('/')
-                ? ExecutionMode.Direct
-                : ParseEnum<ExecutionMode>(
-                    modelAnalysis.ExecutionMode,
-                    "executionMode");
-
-        PromptAnalysisResult result = new(
-            ParseEnum<AITaskType>(modelAnalysis.Intent, "intent"),
-            ParseEnum<PromptLevel>(modelAnalysis.Complexity, "complexity"),
-            ParseEnum<ActionSecurityLevel>(modelAnalysis.Security, "security"),
-            executionMode);
-
-        prompt.ApplyAnalysis(
-            result.Intent,
-            result.Complexity,
-            result.SecurityLevel);
-
-        return result;
+        if (persistChanges)
+        {
+            await promptRepository.SaveAsync(prompt, cancellationToken);
+        }
     }
 
-    private static ModelPromptAnalysis ParseModelResponse(string modelResponse)
+    private static void ApplyModelResponse(
+        Prompt prompt,
+        string modelResponse)
     {
         if (string.IsNullOrWhiteSpace(modelResponse))
         {
@@ -123,50 +123,41 @@ public sealed class PromptAnalysisService(
                 $"Prompt analysis model returned invalid JSON: '{modelResponse.Trim()}'.");
         }
 
+        AITaskType intent;
+        PromptLevel complexity;
+        ActionSecurityLevel securityLevel;
+        ExecutionMode executionMode;
         try
         {
-            return JsonSerializer.Deserialize<ModelPromptAnalysis>(
-                modelResponse[jsonStart..(jsonEnd + 1)],
-                new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                })
-                ?? throw new InvalidOperationException(
-                    "Prompt analysis model returned an empty JSON object.");
+            using JsonDocument document = JsonDocument.Parse(
+                modelResponse[jsonStart..(jsonEnd + 1)]);
+            JsonElement root = document.RootElement;
+
+            intent = root.GetProperty("intent")
+                .Deserialize<AITaskType>(AnalysisJsonOptions);
+            complexity = root.GetProperty("complexity")
+                .Deserialize<PromptLevel>(AnalysisJsonOptions);
+            securityLevel = root.GetProperty("security")
+                .Deserialize<ActionSecurityLevel>(AnalysisJsonOptions);
+            executionMode = prompt.Content.TrimStart().StartsWith('/')
+                ? ExecutionMode.Direct
+                : root.GetProperty("executionMode")
+                    .Deserialize<ExecutionMode>(AnalysisJsonOptions);
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (
+            exception is JsonException or
+            KeyNotFoundException or
+            InvalidOperationException)
         {
             throw new InvalidOperationException(
-                $"Prompt analysis model returned invalid JSON: '{modelResponse.Trim()}'.",
+                $"Prompt analysis model returned invalid analysis JSON: '{modelResponse.Trim()}'.",
                 exception);
         }
+
+        prompt.ApplyAnalysis(
+            intent,
+            complexity,
+            securityLevel,
+            executionMode);
     }
-
-    private static TEnum ParseEnum<TEnum>(
-        string? value,
-        string propertyName)
-        where TEnum : struct, Enum
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            string? enumName = Enum.GetNames<TEnum>().FirstOrDefault(
-                name => name.Equals(
-                    value.Trim(),
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (enumName is not null)
-            {
-                return Enum.Parse<TEnum>(enumName);
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"Prompt analysis returned an invalid {propertyName}: '{value}'.");
-    }
-
-    private sealed record ModelPromptAnalysis(
-        string? Intent,
-        string? Complexity,
-        string? Security,
-        string? ExecutionMode);
 }
