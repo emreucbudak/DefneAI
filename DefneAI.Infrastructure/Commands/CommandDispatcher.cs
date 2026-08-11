@@ -2,6 +2,7 @@ using DefneAI.Application.Commands;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.DTOs;
 using DefneAI.Application.InitializerService;
+using DefneAI.Application.ModelFactory;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
 using System.Globalization;
@@ -11,7 +12,8 @@ namespace DefneAI.Infrastructure.Commands;
 public sealed class CommandDispatcher(
     IModelInitializerService modelInitializerService,
     IModelRepository repository,
-    IChatSessionService chatSessionService) : ICommandDispatcher
+    IChatSessionService chatSessionService,
+    IModelProviderFactory modelProviderFactory) : ICommandDispatcher
 {
     public bool IsCommand(string input)
     {
@@ -27,27 +29,7 @@ public sealed class CommandDispatcher(
 
         try
         {
-            string validationError = Validate(modelDto);
-            if (!string.IsNullOrEmpty(validationError))
-            {
-                return validationError;
-            }
-
-            AIModelProvider model = new()
-            {
-                ModelId = modelDto.ModelId,
-                ModelName = modelDto.ModelName,
-                ModelSystemPrompt = modelDto.ModelSystemPrompt,
-                ModelDescription = modelDto.ModelDescription,
-                ModelInstructions = modelDto.ModelInstructions,
-                ModelPurpose = modelDto.ModelPurpose,
-                Temperature = modelDto.Temperature,
-                ApiKey = modelDto.ApiKey,
-                Endpoint = modelDto.Endpoint,
-                ServiceId = modelDto.ServiceId,
-                PriorityNumber = modelDto.PriorityNumber,
-                IsRemoved = false
-            };
+            AIModelProvider model = modelProviderFactory.Create(modelDto);
 
             return await repository.AddModel(model);
         }
@@ -75,6 +57,7 @@ public sealed class CommandDispatcher(
                 "/sohbetler" => await ListChats(cancellationToken),
                 "/chatsec" => await SelectChat(arguments, cancellationToken),
                 "/chatsil" => await DeleteChat(arguments, cancellationToken),
+                "/modelekle" => await AddModel(arguments, cancellationToken),
                 "/modellistele" => await ListModels(),
                 "/modelguncelle" => await UpdateModel(arguments),
                 "/modelsil" => await RemoveModel(arguments),
@@ -100,6 +83,7 @@ public sealed class CommandDispatcher(
     {
         return string.Join(Environment.NewLine, new[]
         {
+            "/modelekle {modelAdı} {sağlayıcı} {apiKey} - Factory varsayımlarıyla model ekler",
             "/komutlar - Komut listesini gösterir",
             "/beyin - Aktif yerel beyin modelini gösterir",
             "/yenichat - Yeni bir sohbet oluşturur ve ona geçer",
@@ -110,6 +94,27 @@ public sealed class CommandDispatcher(
             "/modelguncelle {modelAdı} {argümanAdı} {argümanDeğeri} - Model alanını günceller",
             "/modelsil {modelAdı} - Modeli pasif duruma getirir"
         });
+    }
+
+    private async Task<string> AddModel(
+        string arguments,
+        CancellationToken cancellationToken)
+    {
+        string[] addArguments = arguments.Split(
+            ' ',
+            StringSplitOptions.RemoveEmptyEntries);
+
+        if (addArguments.Length != 3)
+        {
+            return "Kullanım: /modelekle {modelAdı} {sağlayıcı} {apiKey}";
+        }
+
+        return await AddModelAsync(
+            new AddModelDto(
+                ModelName: addArguments[0],
+                Provider: addArguments[1],
+                ApiKey: addArguments[2]),
+            cancellationToken);
     }
 
     private async Task<string> ListModels()
@@ -288,32 +293,4 @@ public sealed class CommandDispatcher(
         return $"{Math.Max(0, (int)age.TotalMinutes)} dakika önce";
     }
 
-    private static string Validate(AddModelDto model)
-    {
-        string[] required =
-        {
-            model.ModelId,
-            model.ModelName,
-            model.ModelSystemPrompt,
-            model.ModelDescription,
-            model.ModelInstructions,
-            model.ApiKey,
-            model.Endpoint,
-            model.ServiceId
-        };
-
-        if (required.Any(string.IsNullOrWhiteSpace))
-        {
-            return "Modelin metin alanları zorunludur.";
-        }
-
-        if (!Uri.TryCreate(model.Endpoint, UriKind.Absolute, out _))
-        {
-            return "Endpoint geçerli bir mutlak adres olmalıdır.";
-        }
-
-        return model.Temperature is < 0 or > 2
-            ? "Temperature 0 ile 2 arasında olmalıdır."
-            : string.Empty;
-    }
 }

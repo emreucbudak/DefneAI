@@ -1,9 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using DefneAI.Application.Commands;
 using DefneAI.Application.DTOs;
-using DefneAI.Domain.Enums;
 using System.Diagnostics;
 using YoutubeExplode;
 using YoutubeExplode.Search;
@@ -273,32 +272,16 @@ namespace DefneAI.Infrastructure.Plugin
         }
 
         [KernelFunction]
-        [Description("Yeni bir AI modeli kaydeder")]
+        [Description("Model adı, sağlayıcı ve API key ile yeni bir AI modeli kaydeder")]
         public Task<string> AddModel(
-            string modelId,
             string modelName,
-            string modelSystemPrompt,
-            string modelDescription,
-            string modelInstructions,
-            AITaskType modelPurpose,
-            double temperature,
-            string apiKey,
-            string endpoint,
-            string serviceId,
-            int priorityNumber)
+            string provider,
+            string apiKey)
         {
             AddModelDto model = new(
-                ModelId: modelId,
                 ModelName: modelName,
-                ModelSystemPrompt: modelSystemPrompt,
-                ModelDescription: modelDescription,
-                ModelInstructions: modelInstructions,
-                ModelPurpose: modelPurpose,
-                Temperature: temperature,
-                ApiKey: apiKey,
-                Endpoint: endpoint,
-                ServiceId: serviceId,
-                PriorityNumber: priorityNumber);
+                Provider: provider,
+                ApiKey: apiKey);
 
             return DispatchAddModelAsync(model);
         }
