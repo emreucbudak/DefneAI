@@ -272,16 +272,24 @@ namespace DefneAI.Infrastructure.Plugin
         }
 
         [KernelFunction]
-        [Description("Model adı, sağlayıcı ve API key ile yeni bir AI modeli kaydeder")]
+        [Description("Model adı, sağlayıcı, API key, amaç, açıklama, temperature ve priority ile yeni bir AI modeli kaydeder")]
         public Task<string> AddModel(
             string modelName,
             string provider,
-            string apiKey)
+            string apiKey,
+            string modelPurpose,
+            string modelDescription,
+            double temperature,
+            int priorityNumber)
         {
             AddModelDto model = new(
                 ModelName: modelName,
                 Provider: provider,
-                ApiKey: apiKey);
+                ApiKey: apiKey,
+                ModelPurpose: modelPurpose,
+                ModelDescription: modelDescription,
+                Temperature: temperature,
+                PriorityNumber: priorityNumber);
 
             return DispatchAddModelAsync(model);
         }

@@ -29,9 +29,7 @@ public sealed class CommandDispatcher(
 
         try
         {
-            AIModelProvider model = modelProviderFactory.Create(modelDto);
-
-            return await repository.AddModel(model);
+            return await SaveModelAsync(modelDto);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -83,7 +81,7 @@ public sealed class CommandDispatcher(
     {
         return string.Join(Environment.NewLine, new[]
         {
-            "/modelekle {modelAdı} {sağlayıcı} {apiKey} - Factory varsayımlarıyla model ekler",
+            "/modelekle {modelAdı} {sağlayıcı} {apiKey} {amaç} {temperature} {priority} {açıklama} - Model ekler",
             "/komutlar - Komut listesini gösterir",
             "/beyin - Aktif yerel beyin modelini gösterir",
             "/yenichat - Yeni bir sohbet oluşturur ve ona geçer",
@@ -102,19 +100,49 @@ public sealed class CommandDispatcher(
     {
         string[] addArguments = arguments.Split(
             ' ',
+            7,
             StringSplitOptions.RemoveEmptyEntries);
 
-        if (addArguments.Length != 3)
+        if (addArguments.Length != 7)
         {
-            return "Kullanım: /modelekle {modelAdı} {sağlayıcı} {apiKey}";
+            return "Kullanım: /modelekle {modelAdı} {sağlayıcı} {apiKey} " +
+                "{amaç} {temperature} {priority} {açıklama}";
+        }
+
+        if (!double.TryParse(
+                addArguments[4],
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out double temperature))
+        {
+            return "Temperature geçerli bir sayı olmalıdır.";
+        }
+
+        if (!int.TryParse(
+                addArguments[5],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int priorityNumber))
+        {
+            return "Priority geçerli bir tam sayı olmalıdır.";
         }
 
         return await AddModelAsync(
             new AddModelDto(
                 ModelName: addArguments[0],
                 Provider: addArguments[1],
-                ApiKey: addArguments[2]),
+                ApiKey: addArguments[2],
+                ModelPurpose: addArguments[3],
+                ModelDescription: addArguments[6],
+                Temperature: temperature,
+                PriorityNumber: priorityNumber),
             cancellationToken);
+    }
+
+    private async Task<string> SaveModelAsync(AddModelDto modelDto)
+    {
+        AIModelProvider model = modelProviderFactory.Create(modelDto);
+        return await repository.AddModel(model);
     }
 
     private async Task<string> ListModels()

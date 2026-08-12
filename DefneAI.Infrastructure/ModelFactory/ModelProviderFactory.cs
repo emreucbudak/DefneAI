@@ -7,10 +7,6 @@ namespace DefneAI.Infrastructure.ModelFactory;
 
 public sealed class ModelProviderFactory : IModelProviderFactory
 {
-    private const string DefaultInstructions =
-        "Answer the user's request accurately, clearly, and concisely. " +
-        "Use the available tools when they are needed.";
-
     public AIModelProvider Create(AddModelDto model)
     {
         ArgumentNullException.ThrowIfNull(model);
@@ -18,6 +14,8 @@ public sealed class ModelProviderFactory : IModelProviderFactory
         string modelName = model.ModelName?.Trim() ?? string.Empty;
         string provider = model.Provider?.Trim() ?? string.Empty;
         string apiKey = model.ApiKey?.Trim() ?? string.Empty;
+        string modelPurposeName = model.ModelPurpose?.Trim() ?? string.Empty;
+        string modelDescription = model.ModelDescription?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(modelName))
         {
@@ -34,22 +32,61 @@ public sealed class ModelProviderFactory : IModelProviderFactory
             throw new ArgumentException("API key boş olamaz.", nameof(model));
         }
 
+        if (string.IsNullOrWhiteSpace(modelPurposeName))
+        {
+            throw new ArgumentException("Model amacı boş olamaz.", nameof(model));
+        }
+
+        if (string.IsNullOrWhiteSpace(modelDescription))
+        {
+            throw new ArgumentException("Model açıklaması boş olamaz.", nameof(model));
+        }
+
+        AITaskType modelPurpose = GetModelPurpose(modelPurposeName);
+
+        if (model.Temperature is < 0 or > 2)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(model),
+                "Temperature 0 ile 2 arasında olmalıdır.");
+        }
+
+        if (model.PriorityNumber < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(model),
+                "Priority negatif olamaz.");
+        }
+
         ProviderSettings settings = GetProviderSettings(provider);
 
         return new AIModelProvider
         {
             ModelId = modelName,
             ModelName = modelName,
-            ModelSystemPrompt = DefaultInstructions,
-            ModelDescription = $"{settings.DisplayName} üzerinden çalışan {modelName} modeli.",
-            ModelInstructions = DefaultInstructions,
-            ModelPurpose = AITaskType.GeneralChat,
-            Temperature = 0.7,
+            ModelDescription = modelDescription,
+            ModelPurpose = modelPurpose,
+            Temperature = model.Temperature,
             ApiKey = apiKey,
             Endpoint = settings.Endpoint,
             ServiceId = CreateServiceId(settings.Key, modelName),
-            PriorityNumber = 100,
+            PriorityNumber = model.PriorityNumber,
             IsRemoved = false
+        };
+    }
+
+    private static AITaskType GetModelPurpose(string modelPurpose)
+    {
+        return Normalize(modelPurpose) switch
+        {
+            "coding" or "code" or "kodlama" => AITaskType.Coding,
+            "office" or "officetask" or "ofis" => AITaskType.OfficeTask,
+            "web" or "websearch" or "arama" => AITaskType.WebSearch,
+            "chat" or "generalchat" or "sohbet" => AITaskType.GeneralChat,
+            _ => throw new ArgumentException(
+                $"Desteklenmeyen model amacı: {modelPurpose}. " +
+                "Desteklenenler: coding, office, websearch, chat.",
+                nameof(modelPurpose))
         };
     }
 
@@ -59,31 +96,24 @@ public sealed class ModelProviderFactory : IModelProviderFactory
         {
             "ollama" => new(
                 Key: "ollama",
-                DisplayName: "Ollama",
                 Endpoint: "http://localhost:11434/v1"),
             "lmstudio" => new(
                 Key: "lmstudio",
-                DisplayName: "LM Studio",
                 Endpoint: "http://localhost:1234/v1"),
             "openai" => new(
                 Key: "openai",
-                DisplayName: "OpenAI",
                 Endpoint: "https://api.openai.com/v1"),
             "openrouter" => new(
                 Key: "openrouter",
-                DisplayName: "OpenRouter",
                 Endpoint: "https://openrouter.ai/api/v1"),
             "groq" => new(
                 Key: "groq",
-                DisplayName: "Groq",
                 Endpoint: "https://api.groq.com/openai/v1"),
             "deepseek" => new(
                 Key: "deepseek",
-                DisplayName: "DeepSeek",
                 Endpoint: "https://api.deepseek.com/v1"),
             "gemini" or "google" => new(
                 Key: "gemini",
-                DisplayName: "Google Gemini",
                 Endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/"),
             _ => throw new ArgumentException(
                 $"Desteklenmeyen sağlayıcı: {provider}. " +
@@ -114,9 +144,10 @@ public sealed class ModelProviderFactory : IModelProviderFactory
             : $"{provider}-{normalizedModelName}";
     }
 
-    private static string Normalize(string provider)
+    private static string Normalize(string value)
     {
-        return provider
+        return value
+            .Trim()
             .Replace("-", string.Empty, StringComparison.Ordinal)
             .Replace("_", string.Empty, StringComparison.Ordinal)
             .Replace(" ", string.Empty, StringComparison.Ordinal)
@@ -125,6 +156,5 @@ public sealed class ModelProviderFactory : IModelProviderFactory
 
     private sealed record ProviderSettings(
         string Key,
-        string DisplayName,
         string Endpoint);
 }
