@@ -35,7 +35,7 @@ public sealed class PromptAnalysisService(
         cancellationToken.ThrowIfCancellationRequested();
 
         string analysisPrompt = $$"""
-            Analyze the user's request once and return every routing classification.
+            Analyze the user's request once and return its routing classifications.
             Return exactly one JSON object. Do not return markdown or an explanation.
 
             Allowed intent values:
@@ -58,24 +58,14 @@ public sealed class PromptAnalysisService(
             - EXTRAHIGH: shell or administrator commands, credentials, secrets,
               or hard-to-reverse system changes.
 
-            Allowed executionMode values:
-            - DIRECT: conversation, explanation, a single action, one tool call,
-              one command, or work that does not benefit from decomposition.
-            - PLANNED: multiple dependent actions, work spanning distinct task types,
-              or execution where step-level retry and replanning are useful.
-
             Rules:
             - Complexity must not change security by itself.
-            - Complexity and security alone do not require a plan.
-            - A difficult one-step request can be DIRECT.
-            - Commands beginning with "/" must be DIRECT.
 
             Use this exact JSON shape:
             {
               "intent": "Coding",
               "complexity": "LOW",
-              "security": "LOW",
-              "executionMode": "DIRECT"
+              "security": "LOW"
             }
 
             User request:
@@ -126,7 +116,6 @@ public sealed class PromptAnalysisService(
         AITaskType intent;
         PromptLevel complexity;
         ActionSecurityLevel securityLevel;
-        ExecutionMode executionMode;
         try
         {
             using JsonDocument document = JsonDocument.Parse(
@@ -139,10 +128,6 @@ public sealed class PromptAnalysisService(
                 .Deserialize<PromptLevel>(AnalysisJsonOptions);
             securityLevel = root.GetProperty("security")
                 .Deserialize<ActionSecurityLevel>(AnalysisJsonOptions);
-            executionMode = prompt.Content.TrimStart().StartsWith('/')
-                ? ExecutionMode.Direct
-                : root.GetProperty("executionMode")
-                    .Deserialize<ExecutionMode>(AnalysisJsonOptions);
         }
         catch (Exception exception) when (
             exception is JsonException or
@@ -157,7 +142,6 @@ public sealed class PromptAnalysisService(
         prompt.ApplyAnalysis(
             intent,
             complexity,
-            securityLevel,
-            executionMode);
+            securityLevel);
     }
 }

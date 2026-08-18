@@ -1,5 +1,4 @@
 using DefneAI.Application.Helpers;
-using DefneAI.Application.Planning;
 using DefneAI.Application.PromptAnalysis;
 using DefneAI.Application.PromptStates;
 using DefneAI.Application.PromptStrategy;
@@ -13,7 +12,6 @@ namespace DefneAI.Application.Execution;
 public sealed class  ExecutionOrchestrator(
     IPromptAnalysisService promptAnalysisService,
     IEnumerable<IPromptStrategy> promptStrategies,
-    IPlanExecutor planExecutor,
     IPromptRepository promptRepository,
     IContext context) : IExecutionOrchestrator
 {
@@ -48,21 +46,10 @@ public sealed class  ExecutionOrchestrator(
             string? response = null;
             await context.State.WriteAsync(async () =>
             {
-                response = prompt.ExecutionMode switch
-                {
-                    ExecutionMode.Direct => await ExecuteDirectAsync(
-                        prompt,
-                        executionThread,
-                        cancellationToken),
-                    ExecutionMode.Planned => await planExecutor.ExecuteAsync(
-                        prompt,
-                        executionThread,
-                        cancellationToken),
-                    _ => throw new ArgumentOutOfRangeException(
-                        nameof(prompt.ExecutionMode),
-                        prompt.ExecutionMode,
-                        "Unsupported execution mode.")
-                };
+                response = await ExecuteStrategyAsync(
+                    prompt,
+                    executionThread,
+                    cancellationToken);
             });
 
             if (string.IsNullOrWhiteSpace(response))
@@ -93,7 +80,7 @@ public sealed class  ExecutionOrchestrator(
         }
     }
 
-    private async Task<string> ExecuteDirectAsync(
+    private async Task<string> ExecuteStrategyAsync(
         Prompt prompt,
         ChatHistoryAgentThread executionThread,
         CancellationToken cancellationToken)
