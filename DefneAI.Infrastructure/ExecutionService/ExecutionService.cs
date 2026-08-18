@@ -1,7 +1,7 @@
 using DefneAI.Application.Commands;
+using DefneAI.Application.Execution;
 using DefneAI.Application.Helpers;
 using DefneAI.Application.InitializerService;
-using DefneAI.Application.PromptStrategy;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
@@ -10,18 +10,15 @@ using Spectre.Console;
 
 namespace DefneAI.Infrastructure.ExecutionService;
 
-public sealed class CodingModelExecutionService(
+public sealed class ExecutionService(
     ICommandDispatcher commandDispatcher,
     IModelInitializerService modelInitializerService,
-    IAIResponseRepository aiResponseRepository) : IPromptStrategy
+    IAIResponseRepository aiResponseRepository) : IExecutionService
 {
-    public AITaskType Intent => AITaskType.Coding;
-
-    public Task<string> ExecutionAsync(
+    public Task<string> ExecuteAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken = default,
-        bool persistResponse = true)
+        CancellationToken cancellationToken = default)
     {
         Validate(prompt, chatHistoryThread, cancellationToken);
 
@@ -30,21 +27,18 @@ public sealed class CodingModelExecutionService(
             ActionSecurityLevel.LOW => ExecuteLowSecurityAsync(
                 prompt,
                 chatHistoryThread,
-                cancellationToken,
-                persistResponse),
+                cancellationToken),
             _ => ExecuteElevatedSecurityAsync(
                 prompt,
                 chatHistoryThread,
-                cancellationToken,
-                persistResponse)
+                cancellationToken)
         };
     }
 
     private async Task<string> ExecuteLowSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken,
-        bool persistResponse)
+        CancellationToken cancellationToken)
     {
         if (commandDispatcher.IsCommand(prompt.Content))
         {
@@ -58,15 +52,13 @@ public sealed class CodingModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: false,
-            persistResponse,
             cancellationToken);
     }
 
     private async Task<string> ExecuteElevatedSecurityAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken,
-        bool persistResponse)
+        CancellationToken cancellationToken)
     {
         string proposalPrompt = $"""
             You are in proposal-only mode.
@@ -86,7 +78,6 @@ public sealed class CodingModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: true,
-            persistResponse,
             cancellationToken);
 
         AnsiConsole.MarkupLine("[bold yellow]Önerilen çözüm:[/]");
@@ -125,7 +116,6 @@ public sealed class CodingModelExecutionService(
             prompt,
             chatHistoryThread,
             isProposal: false,
-            persistResponse,
             cancellationToken);
     }
 
@@ -134,11 +124,13 @@ public sealed class CodingModelExecutionService(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         bool isProposal,
-        bool persistResponse,
         CancellationToken cancellationToken)
     {
+        AITaskType intent = prompt.PromptIntent
+            ?? throw new InvalidOperationException(
+                "Prompt intent analysis produced no result.");
         IList<ChatCompletionAgent> agents =
-            await modelInitializerService.GetChatCompletionAgentsAsync(Intent);
+            await modelInitializerService.GetChatCompletionAgentsAsync(intent);
         if (agents.Count == 0)
         {
             throw new InvalidOperationException(
@@ -178,24 +170,21 @@ public sealed class CodingModelExecutionService(
                 "AI modeli bir sonuç üretmedi.");
         }
 
-        if (persistResponse)
-        {
-            await aiResponseRepository.AddAsync(
-                new AIResponse
-                {
-                    ChatId = prompt.ChatId,
-                    PromptId = prompt.Id,
-                    Content = result,
-                    ModelName = agent.Name ?? agent.Id ?? "Unknown",
-                    IsProposal = isProposal
-                },
-                cancellationToken);
-        }
+        await aiResponseRepository.AddAsync(
+            new AIResponse
+            {
+                ChatId = prompt.ChatId,
+                PromptId = prompt.Id,
+                Content = result,
+                ModelName = agent.Name ?? agent.Id ?? "Unknown",
+                IsProposal = isProposal
+            },
+            cancellationToken);
 
         return result;
     }
 
-    private void Validate(
+    private static void Validate(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken)
@@ -211,12 +200,6 @@ public sealed class CodingModelExecutionService(
         {
             throw new InvalidOperationException(
                 "Prompt analysis must be completed before model execution.");
-        }
-
-        if (prompt.PromptIntent != Intent)
-        {
-            throw new InvalidOperationException(
-                $"Prompt intent '{prompt.PromptIntent}' does not match strategy intent '{Intent}'.");
         }
     }
 }
