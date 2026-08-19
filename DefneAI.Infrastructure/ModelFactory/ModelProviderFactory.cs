@@ -2,61 +2,24 @@ using DefneAI.Application.DTOs;
 using DefneAI.Application.ModelFactory;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
+using FluentValidation;
 
 namespace DefneAI.Infrastructure.ModelFactory;
 
-public sealed class ModelProviderFactory : IModelProviderFactory
+public sealed class ModelProviderFactory(
+    IValidator<AddModelDto> validator) : IModelProviderFactory
 {
     public AIModelProvider Create(AddModelDto model)
     {
-        ArgumentNullException.ThrowIfNull(model);
+        validator.ValidateAndThrow(model);
 
-        string modelName = model.ModelName?.Trim() ?? string.Empty;
-        string provider = model.Provider?.Trim() ?? string.Empty;
-        string apiKey = model.ApiKey?.Trim() ?? string.Empty;
-        string modelPurposeName = model.ModelPurpose?.Trim() ?? string.Empty;
-        string modelDescription = model.ModelDescription?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(modelName))
-        {
-            throw new ArgumentException("Model adı boş olamaz.", nameof(model));
-        }
-
-        if (string.IsNullOrWhiteSpace(provider))
-        {
-            throw new ArgumentException("Sağlayıcı adı boş olamaz.", nameof(model));
-        }
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            throw new ArgumentException("API key boş olamaz.", nameof(model));
-        }
-
-        if (string.IsNullOrWhiteSpace(modelPurposeName))
-        {
-            throw new ArgumentException("Model amacı boş olamaz.", nameof(model));
-        }
-
-        if (string.IsNullOrWhiteSpace(modelDescription))
-        {
-            throw new ArgumentException("Model açıklaması boş olamaz.", nameof(model));
-        }
+        string modelName = model.ModelName.Trim();
+        string provider = model.Provider.Trim();
+        string apiKey = model.ApiKey.Trim();
+        string modelPurposeName = model.ModelPurpose.Trim();
+        string modelDescription = model.ModelDescription.Trim();
 
         AITaskType modelPurpose = GetModelPurpose(modelPurposeName);
-
-        if (model.Temperature is < 0 or > 2)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(model),
-                "Temperature 0 ile 2 arasında olmalıdır.");
-        }
-
-        if (model.PriorityNumber < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(model),
-                "Priority negatif olamaz.");
-        }
 
         ProviderSettings settings = GetProviderSettings(provider);
 
