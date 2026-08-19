@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DefneAI.Application.Helpers;
-using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
@@ -12,7 +11,7 @@ using Microsoft.SemanticKernel.Agents;
 namespace DefneAI.Application.PromptAnalysis;
 
 public sealed class PromptAnalysisService(
-    IModelInitializerService modelInitializerService,
+    ChatCompletionAgent cliBrain,
     IPromptRepository promptRepository) : IPromptAnalysisService
 {
     private static readonly JsonSerializerOptions AnalysisJsonOptions = new()
@@ -58,7 +57,7 @@ public sealed class PromptAnalysisService(
         StringBuilder responseBuilder = new();
 
         await foreach (AgentResponseItem<ChatMessageContent> response in
-            modelInitializerService.GetCLIBrain().InvokeAsync(
+            cliBrain.InvokeAsync(
                 analysisPrompt,
                 thread: analysisThread,
                 cancellationToken: cancellationToken))

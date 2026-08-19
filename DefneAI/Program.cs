@@ -23,6 +23,9 @@ using DefneAI.Persistence.Repository;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Spectre.Console;
 
 Console.Title = "DefneAI - The AI Assistant for Developers";
@@ -41,6 +44,33 @@ DefneAI is an AI assistant designed to help developers with various tasks. It ca
 */
 ServiceCollection services = new();
 services.AddMemoryCache();
+
+const string cliBrainModelId = "gemma4:e4b";
+const string cliBrainServiceId = "defne-cli-brain";
+IKernelBuilder cliBrainBuilder = Kernel.CreateBuilder();
+cliBrainBuilder.AddOpenAIChatCompletion(
+    modelId: cliBrainModelId,
+    apiKey: "ollama",
+    endpoint: new Uri("http://localhost:11434/v1", UriKind.Absolute),
+    serviceId: cliBrainServiceId);
+Kernel cliBrainKernel = cliBrainBuilder.Build();
+OpenAIPromptExecutionSettings cliBrainSettings = new()
+{
+    ServiceId = cliBrainServiceId,
+    Temperature = 0
+};
+ChatCompletionAgent cliBrain = new()
+{
+    Name = "DefneCLIBrain",
+    Description = $"Local Ollama CLI brain: {cliBrainModelId}",
+    Kernel = cliBrainKernel,
+    Arguments = new KernelArguments(cliBrainSettings),
+    Instructions =
+        "Classify the user's prompt according to the criteria supplied in each request. " +
+        "Return only the single value requested by the criteria. " +
+        "Do not add JSON, quotes, markdown, or explanations."
+};
+services.AddSingleton(cliBrain);
 services.AddScoped<DefneAI.Application.Commands.ICommandDispatcher,
     DefneAI.Infrastructure.Commands.CommandDispatcher>();
 services.AddSingleton<ApplicationTools>();

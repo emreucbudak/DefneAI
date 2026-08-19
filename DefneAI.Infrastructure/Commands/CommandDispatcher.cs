@@ -1,7 +1,6 @@
 using DefneAI.Application.Commands;
 using DefneAI.Application.ChatSession;
 using DefneAI.Application.DTOs;
-using DefneAI.Application.InitializerService;
 using DefneAI.Application.ModelFactory;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Models;
@@ -10,7 +9,6 @@ using System.Globalization;
 namespace DefneAI.Infrastructure.Commands;
 
 public sealed class CommandDispatcher(
-    IModelInitializerService modelInitializerService,
     IModelRepository repository,
     IChatSessionService chatSessionService,
     IModelProviderFactory modelProviderFactory) : ICommandDispatcher
@@ -50,7 +48,6 @@ public sealed class CommandDispatcher(
             return command.ToLowerInvariant() switch
             {
                 "/komutlar" => GetCommands(),
-                "/beyin" => $"Aktif beyin: {modelInitializerService.GetCLIBrain().Description}",
                 "/yenichat" => await CreateNewChat(arguments, cancellationToken),
                 "/sohbetler" => await ListChats(cancellationToken),
                 "/chatsec" => await SelectChat(arguments, cancellationToken),
@@ -83,7 +80,6 @@ public sealed class CommandDispatcher(
         {
             "/modelekle {modelAdı} {sağlayıcı} {apiKey} {amaç} {temperature} {priority} {açıklama} - Model ekler",
             "/komutlar - Komut listesini gösterir",
-            "/beyin - Aktif yerel beyin modelini gösterir",
             "/yenichat - Yeni bir sohbet oluşturur ve ona geçer",
             "/sohbetler - Kayıtlı sohbetleri tarihleriyle listeler",
             "/chatsec {chatId} - Eski bir sohbete geçer",

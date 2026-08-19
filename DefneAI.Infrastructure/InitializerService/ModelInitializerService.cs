@@ -11,10 +11,6 @@ namespace DefneAI.Infrastructure.InitializerService
 {
     public sealed class ModelInitializerService(IModelRepository repo, IKernelFactory kernelFactory) : IModelInitializerService
     {
-        private const string CLIBrainModelId = "gemma4:e4b";
-        private const string CLIBrainServiceId = "defne-cli-brain";
-        private const string CLIBrainEndpoint = "http://localhost:11434/v1";
-        private ChatCompletionAgent? cliBrain;
 
         public async Task<string> InitializeModelAsync()
         {
@@ -73,42 +69,6 @@ namespace DefneAI.Infrastructure.InitializerService
             }
 
             return modelAgents;
-        }
-
-        public ChatCompletionAgent GetCLIBrain()
-        {
-            if (cliBrain is not null)
-            {
-                return cliBrain;
-            }
-
-            IKernelBuilder builder = Kernel.CreateBuilder();
-            builder.AddOpenAIChatCompletion(
-                modelId: CLIBrainModelId,
-                apiKey: "ollama",
-                endpoint: new Uri(CLIBrainEndpoint, UriKind.Absolute),
-                serviceId: CLIBrainServiceId);
-
-            Kernel brainKernel = builder.Build();
-            OpenAIPromptExecutionSettings settings = new()
-            {
-                ServiceId = CLIBrainServiceId,
-                Temperature = 0
-            };
-
-            cliBrain = new ChatCompletionAgent
-            {
-                Name = "DefneCLIBrain",
-                Description = $"Local Ollama CLI brain: {CLIBrainModelId}",
-                Kernel = brainKernel,
-                Arguments = new KernelArguments(settings),
-                Instructions =
-                    "Classify the user's prompt according to the criteria supplied in each request. " +
-                    "Return only the single value requested by the criteria. " +
-                    "Do not add JSON, quotes, markdown, or explanations."
-            };
-
-            return cliBrain;
         }
 
         private async Task<AIModelProvider[]> GetActiveModelsAsync()
