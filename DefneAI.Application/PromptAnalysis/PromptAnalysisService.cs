@@ -35,7 +35,7 @@ public sealed class PromptAnalysisService(
         cancellationToken.ThrowIfCancellationRequested();
 
         string analysisPrompt = $$"""
-            Analyze the user's request once and return its routing classifications.
+            Analyze the user's request once and return its routing classification.
             Return exactly one JSON object. Do not return markdown or an explanation.
 
             Allowed intent values:
@@ -44,28 +44,9 @@ public sealed class PromptAnalysisService(
             - WebSearch: information that requires browsing, current data or online research.
             - GeneralChat: conversation, chat-session management, explanation or other requests.
 
-            Allowed complexity values:
-            - LOW: one-step work, reading, listing, simple generation, or a small clear change.
-            - MEDIUM: multiple steps, model configuration, adding or updating a model, or moderate debugging.
-            - HIGH: architecture changes, complex debugging, or work affecting several components.
-            - EXTRAHIGH: broad autonomous work with many dependent changes or multiple systems.
-
-            Allowed security values:
-            - LOW: read-only work, generating an answer, or reversible chat-session navigation.
-            - MEDIUM: reversible local file changes or non-destructive local execution.
-            - HIGH: destructive deletion, persistent configuration, sensitive database changes,
-              or external side effects.
-            - EXTRAHIGH: shell or administrator commands, credentials, secrets,
-              or hard-to-reverse system changes.
-
-            Rules:
-            - Complexity must not change security by itself.
-
             Use this exact JSON shape:
             {
-              "intent": "Coding",
-              "complexity": "LOW",
-              "security": "LOW"
+              "intent": "Coding"
             }
 
             User request:
@@ -114,8 +95,6 @@ public sealed class PromptAnalysisService(
         }
 
         AITaskType intent;
-        PromptLevel complexity;
-        ActionSecurityLevel securityLevel;
         try
         {
             using JsonDocument document = JsonDocument.Parse(
@@ -124,10 +103,6 @@ public sealed class PromptAnalysisService(
 
             intent = root.GetProperty("intent")
                 .Deserialize<AITaskType>(AnalysisJsonOptions);
-            complexity = root.GetProperty("complexity")
-                .Deserialize<PromptLevel>(AnalysisJsonOptions);
-            securityLevel = root.GetProperty("security")
-                .Deserialize<ActionSecurityLevel>(AnalysisJsonOptions);
         }
         catch (Exception exception) when (
             exception is JsonException or
@@ -139,9 +114,6 @@ public sealed class PromptAnalysisService(
                 exception);
         }
 
-        prompt.ApplyAnalysis(
-            intent,
-            complexity,
-            securityLevel);
+        prompt.ApplyAnalysis(intent);
     }
 }

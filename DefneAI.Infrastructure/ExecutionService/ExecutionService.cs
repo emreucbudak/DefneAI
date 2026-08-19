@@ -1,10 +1,11 @@
+using System.Text;
 using DefneAI.Application.Commands;
 using DefneAI.Application.Execution;
-using DefneAI.Application.Helpers;
 using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Spectre.Console;
 
@@ -22,40 +23,13 @@ public sealed class ExecutionService(
     {
         Validate(prompt, chatHistoryThread, cancellationToken);
 
-        return prompt.ActionSecurityLevel switch
-        {
-            ActionSecurityLevel.LOW => ExecuteLowSecurityAsync(
-                prompt,
-                chatHistoryThread,
-                cancellationToken),
-            _ => ExecuteElevatedSecurityAsync(
-                prompt,
-                chatHistoryThread,
-                cancellationToken)
-        };
-    }
-
-    private async Task<string> ExecuteLowSecurityAsync(
-        Prompt prompt,
-        ChatHistoryAgentThread chatHistoryThread,
-        CancellationToken cancellationToken)
-    {
-        if (commandDispatcher.IsCommand(prompt.Content))
-        {
-            return await commandDispatcher.ExecuteAsync(
-                prompt.Content,
-                cancellationToken);
-        }
-
-        return await ExecuteModelAsync(
-            prompt.Content,
+        return ExecuteWithApprovalAsync(
             prompt,
             chatHistoryThread,
-            isProposal: false,
             cancellationToken);
     }
 
-    private async Task<string> ExecuteElevatedSecurityAsync(
+    private async Task<string> ExecuteWithApprovalAsync(
         Prompt prompt,
         ChatHistoryAgentThread chatHistoryThread,
         CancellationToken cancellationToken)
@@ -67,8 +41,6 @@ public sealed class ExecutionService(
             Return only the proposed solution so the user can approve or reject it.
 
             Classified intent: {prompt.PromptIntent}
-            Classified complexity: {prompt.PromptLevel}
-            Classified action security: {prompt.ActionSecurityLevel}
 
             Original user request:
             {prompt.Content}
@@ -137,33 +109,18 @@ public sealed class ExecutionService(
                 "Çalıştırılabilir bir AI modeli bulunamadı.");
         }
 
-        PromptLevelExecutionResult executionResult = prompt.PromptLevel switch
-        {
-            PromptLevel.LOW => await PromptLevelExecutionHelper.LowExecuteAsync(
-                agents,
-                executionPrompt,
-                chatHistoryThread,
-                cancellationToken),
-            PromptLevel.MEDIUM => await PromptLevelExecutionHelper.MediumExecuteAsync(
-                agents,
-                executionPrompt,
-                chatHistoryThread,
-                cancellationToken),
-            PromptLevel.HIGH => await PromptLevelExecutionHelper.HighExecuteAsync(
-                agents,
-                executionPrompt,
-                chatHistoryThread,
-                cancellationToken),
-            PromptLevel.EXTRAHIGH => await PromptLevelExecutionHelper.ExtraHighExecuteAsync(
-                agents,
-                executionPrompt,
-                chatHistoryThread,
-                cancellationToken),
-            _ => throw new ArgumentOutOfRangeException()
-        };
+        ChatCompletionAgent agent = agents[0];
+        StringBuilder responseBuilder = new();
 
-        ChatCompletionAgent agent = executionResult.Agent;
-        string result = executionResult.Content;
+        await foreach (AgentResponseItem<ChatMessageContent> response in agent.InvokeAsync(
+            executionPrompt,
+            thread: chatHistoryThread,
+            cancellationToken: cancellationToken))
+        {
+            responseBuilder.Append(response.Message.Content);
+        }
+
+        string result = responseBuilder.ToString().Trim();
         if (string.IsNullOrWhiteSpace(result))
         {
             throw new InvalidOperationException(
@@ -194,9 +151,7 @@ public sealed class ExecutionService(
         ArgumentNullException.ThrowIfNull(chatHistoryThread);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (prompt.PromptIntent is null ||
-            prompt.PromptLevel is null ||
-            prompt.ActionSecurityLevel is null)
+        if (prompt.PromptIntent is null)
         {
             throw new InvalidOperationException(
                 "Prompt analysis must be completed before model execution.");

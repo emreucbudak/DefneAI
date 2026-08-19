@@ -25,17 +25,12 @@ public sealed class Prompt
     public string Content { get; private set; } = string.Empty;
     public PromptState State { get; private set; } = PromptState.Thinking;
     public AITaskType? PromptIntent { get; private set; }
-    public PromptLevel? PromptLevel { get; private set; }
-    public ActionSecurityLevel? ActionSecurityLevel { get; private set; }
     public DateTime CreatedAtUtc { get; private set; } = DateTime.UtcNow;
     public Chat Chat { get; internal set; } = null!;
     public ICollection<AIResponse> Responses { get; private set; } =
         new List<AIResponse>();
 
-    public bool IsAnalyzed =>
-        PromptIntent is not null &&
-        PromptLevel is not null &&
-        ActionSecurityLevel is not null;
+    public bool IsAnalyzed => PromptIntent is not null;
 
     public static Prompt Create(int chatId, string content)
     {
@@ -49,27 +44,17 @@ public sealed class Prompt
             DateTime.UtcNow);
     }
 
-    public void ApplyAnalysis(
-        AITaskType intent,
-        PromptLevel complexity,
-        ActionSecurityLevel securityLevel)
+    public void ApplyAnalysis(AITaskType intent)
     {
         EnsureThinking();
-        if (PromptIntent is not null ||
-            PromptLevel is not null ||
-            ActionSecurityLevel is not null)
+        if (PromptIntent is not null)
         {
             throw new InvalidOperationException(
                 "Prompt analysis has already been applied.");
         }
 
         EnsureDefined(intent);
-        EnsureDefined(complexity);
-        EnsureDefined(securityLevel);
-
         PromptIntent = intent;
-        PromptLevel = complexity;
-        ActionSecurityLevel = securityLevel;
     }
 
     public void StartExecution()
