@@ -1,12 +1,11 @@
 using DefneAI.Application.KernelFactory;
 using DefneAI.Domain.Models;
-using DefneAI.Infrastructure.Plugin;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.SemanticKernel;
 
 namespace DefneAI.Infrastructure.KernelFactory
 {
-    public sealed class DynamicKernelFactory(IMemoryCache cache, DefneAutomationPlugin automationPlugin) : IKernelFactory
+    public sealed class DynamicKernelFactory(IMemoryCache cache) : IKernelFactory
     {
         private const string KernelCacheKey = "DefneAI:DynamicKernel";
 
@@ -15,7 +14,6 @@ namespace DefneAI.Infrastructure.KernelFactory
             ArgumentNullException.ThrowIfNull(models);
 
             IKernelBuilder builder = Kernel.CreateBuilder();
-            builder.Plugins.AddFromObject(automationPlugin);
 
             foreach (AIModelProvider model in models)
             {
