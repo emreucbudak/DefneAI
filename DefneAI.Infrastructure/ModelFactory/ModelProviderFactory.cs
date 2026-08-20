@@ -20,7 +20,6 @@ public sealed class ModelProviderFactory(
         string modelDescription = model.ModelDescription.Trim();
 
         AITaskType modelPurpose = GetModelPurpose(modelPurposeName);
-
         ProviderSettings settings = GetProviderSettings(provider);
 
         return new AIModelProvider
@@ -77,7 +76,7 @@ public sealed class ModelProviderFactory(
                 Endpoint: "https://api.deepseek.com/v1"),
             "gemini" or "google" => new(
                 Key: "gemini",
-                Endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/"),
+                Endpoint: "https://generativelanguage.googleapis.com"),
             _ => throw new ArgumentException(
                 $"Desteklenmeyen sağlayıcı: {provider}. " +
                 "Desteklenenler: ollama, lmstudio, openai, openrouter, groq, deepseek, gemini.",
@@ -102,9 +101,10 @@ public sealed class ModelProviderFactory(
         }
 
         normalizedModelName = normalizedModelName.Trim('-');
+        string accountSuffix = Guid.NewGuid().ToString("N")[..8];
         return string.IsNullOrEmpty(normalizedModelName)
-            ? provider
-            : $"{provider}-{normalizedModelName}";
+            ? $"{provider}-{accountSuffix}"
+            : $"{provider}-{normalizedModelName}-{accountSuffix}";
     }
 
     private static string Normalize(string value)

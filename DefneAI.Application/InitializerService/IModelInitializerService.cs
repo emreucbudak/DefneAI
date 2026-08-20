@@ -1,13 +1,11 @@
-﻿using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
 using DefneAI.Domain.Enums;
+using Microsoft.Agents.AI;
 
-namespace DefneAI.Application.InitializerService
+namespace DefneAI.Application.InitializerService;
+
+public interface IModelInitializerService
 {
-    public interface IModelInitializerService
-    {
-        Task<string> InitializeModelAsync();
-        Task<Kernel> GetKernelAsync();
-        Task<IList<ChatCompletionAgent>> GetChatCompletionAgentsAsync(AITaskType taskType);
-    }
+    Task<string> InitializeModelAsync();
+
+    Task<IList<HarnessAgent>> GetHarnessAgentsAsync(AITaskType taskType);
 }
