@@ -2,9 +2,11 @@
 
 # 🌿 DefneAI
 
-### Geliştiriciler için güvenli, genişletilebilir ve çok sağlayıcılı AI harness platformu
+### Geliştiriciler için çok sağlayıcılı ve genişletilebilir AI harness platformu
 
-DefneAI; kullanıcı isteklerini analiz eden, uygun model ve araçları bir araya getiren, çözümünü kullanıcı onayına sunan ve yalnızca izin verildikten sonra uygulayan terminal tabanlı bir AI asistanıdır.
+DefneAI; kullanıcı isteklerini analiz eden, model ve araçları tek bir çalışma akışında birleştiren terminal tabanlı bir AI asistanıdır.
+
+Kullanıcı, çalışma şekline göre DefneAI’yi **Otonom Mod** veya **Kontrollü Mod** ile kullanabilir.
 
 <br />
 
@@ -12,7 +14,6 @@ DefneAI; kullanıcı isteklerini analiz eden, uygun model ve araçları bir aray
 ![C#](https://img.shields.io/badge/C%23-Latest-239120?style=for-the-badge&logo=csharp&logoColor=white)
 ![Semantic Kernel](https://img.shields.io/badge/Semantic%20Kernel-1.80-5E5E5E?style=for-the-badge)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-EF%20Core-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Ollama](https://img.shields.io/badge/Ollama-Local%20AI-000000?style=for-the-badge&logo=ollama&logoColor=white)
 
 </div>
 
@@ -20,49 +21,36 @@ DefneAI; kullanıcı isteklerini analiz eden, uygun model ve araçları bir aray
 
 ## DefneAI nedir?
 
-DefneAI, geliştiricilerin günlük işlerini doğal dil kullanarak gerçekleştirebilmesini amaçlayan bir AI harness platformudur.
+DefneAI, geliştiricilerin doğal dil kullanarak dosyalar, uygulamalar, terminal komutları ve farklı AI modelleriyle çalışabilmesini sağlayan bir harness platformudur.
 
-Kullanıcıdan gelen istekler önce analiz edilir. Ardından gerekli model, sohbet bağlamı ve kullanılabilir araçlar bir araya getirilerek uygulanabilir bir çözüm hazırlanır.
+Kullanıcıdan gelen istek analiz edilir; gerekli model, konuşma bağlamı ve araçlar bir araya getirilerek uygulanabilir bir çalışma akışı oluşturulur.
 
-Hazırlanan çözüm doğrudan çalıştırılmaz. Önce kullanıcıya gösterilir ve açık onay beklenir. Dosya değiştirme, komut çalıştırma veya uygulama yönetimi gibi işlemler yalnızca kullanıcı izin verdiğinde gerçekleştirilir.
-
-> DefneAI’de **harness**; modelleri, araçları, konuşma bağlamını, yönlendirme mekanizmasını ve güvenli execution akışını bir araya getiren çalışma katmanını ifade eder.
+> DefneAI’de **harness**; modelleri, araçları, konuşma bağlamını, yönlendirme mekanizmasını ve execution sürecini bir araya getiren çalışma katmanını ifade eder.
 
 ---
 
-## ✨ Öne çıkan özellikler
+## 🎛️ Çalışma modları
 
-### 🧠 Akıllı istek analizi
+DefneAI iki farklı çalışma modu sunar.
 
-DefneAI, kullanıcı isteğini çalıştırmadan önce analiz eder ve uygulanacak işleme uygun bir çalışma akışı oluşturur.
+### 🚀 Otonom Mod
 
-Bu analiz sayesinde:
+Otonom Mod’da kullanıcı, uygulama kontrolünü harness’a bırakır.
 
-- Kullanıcının amacı anlaşılır
-- İlgili konuşma bağlamı korunur
-- Uygun model yapılandırması seçilir
-- Gerekli araçlar belirlenir
-- İlgisiz işlemlerin önüne geçilir
+DefneAI verilen isteği analiz eder, gerekli adımları belirler ve her işlem için ayrıca izin istemeden çalışmayı tamamlar.
 
-### 🧩 Harness tabanlı mimari
+Bu mod:
 
-DefneAI’nin harness katmanı aşağıdaki bileşenleri tek bir çalışma akışında bir araya getirir:
+- Hızlı ve kesintisiz çalışma sağlar
+- Uzun süren görevlerde kullanıcı müdahalesini azaltır
+- Birden fazla adımdan oluşan işleri otomatik tamamlar
+- Tekrarlanan onay adımlarını ortadan kaldırır
 
-- AI model sağlayıcıları
-- Model yapılandırmaları
-- Sohbet geçmişi
-- Tool calling altyapısı
-- Kullanıcı onay mekanizması
-- Execution servisleri
-- Kalıcı veri yönetimi
+Otonom Mod, güvenilir projelerde ve kullanıcının çalışma kapsamını açıkça belirlediği durumlarda tercih edilebilir.
 
-Bu yapı sayesinde yeni modeller, araçlar ve çalışma davranışları mevcut mimari bozulmadan sisteme eklenebilir.
+### 🛡️ Kontrollü Mod
 
-### ✅ Onay tabanlı execution
-
-DefneAI, kullanıcı adına doğrudan işlem yapmaz.
-
-Her istek için önce uygulanabilir bir çözüm önerisi oluşturulur:
+Kontrollü Mod’da DefneAI, uygulamak istediği çözümü önce kullanıcıya gösterir.
 
 ```text
 Önerilen çözüm:
@@ -71,11 +59,40 @@ Her istek için önce uygulanabilir bir çözüm önerisi oluşturulur:
 Çözüm uygulansın mı? [y/N]
 ```
 
-Kullanıcı onay verirse çözüm uygulanır. Onay verilmediğinde dosyalar, uygulamalar ve sistem durumu değiştirilmez.
+Kullanıcı onay verirse çözüm uygulanır. Onay verilmezse dosyalar, uygulamalar veya sistem durumu değiştirilmez.
+
+Bu mod:
+
+- Yapılacak işlemlerin önceden incelenmesini sağlar
+- Hassas projelerde kullanıcı kontrolünü korur
+- İstenmeyen değişikliklerin önüne geçmeye yardımcı olur
+- Yeni veya güvenilmeyen çalışma alanları için daha güvenli bir deneyim sunar
+
+Kullanıcı, ihtiyacına göre kontrolü tamamen DefneAI’ye bırakabilir veya execution sürecini kendi onayına bağlayabilir.
+
+---
+
+## ✨ Öne çıkan özellikler
+
+### 🧠 Akıllı istek analizi
+
+DefneAI, kullanıcının isteğini analiz ederek gerekli bağlamı, model yapılandırmasını ve araçları belirler.
+
+### 🧩 Harness tabanlı mimari
+
+Harness katmanı aşağıdaki bileşenleri tek bir çalışma akışında birleştirir:
+
+- AI model sağlayıcıları
+- Model yapılandırmaları
+- Sohbet geçmişi
+- Tool calling altyapısı
+- Çalışma modu yönetimi
+- Execution servisleri
+- Kalıcı veri yönetimi
 
 ### 🔌 Çoklu model sağlayıcısı
 
-DefneAI, OpenAI uyumlu API sunan yerel ve bulut tabanlı model sağlayıcılarıyla çalışabilir:
+DefneAI, OpenAI uyumlu API sunan yerel ve bulut tabanlı sağlayıcılarla çalışabilir:
 
 | Sağlayıcı | Varsayılan endpoint |
 |---|---|
@@ -87,42 +104,33 @@ DefneAI, OpenAI uyumlu API sunan yerel ve bulut tabanlı model sağlayıcıları
 | DeepSeek | `https://api.deepseek.com/v1` |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` |
 
-Model yapılandırmaları dinamik olarak sisteme eklenebilir, güncellenebilir veya devre dışı bırakılabilir.
-
 ### 🛠️ Genişletilebilir araç altyapısı
 
-DefneAI içerisinde farklı otomasyon senaryoları için yeniden kullanılabilir araç servisleri bulunur:
+DefneAI içerisinde farklı otomasyon senaryoları için araç servisleri bulunur:
 
-- Dosya içeriği okuma
-- Dosya oluşturma ve düzenleme
+- Dosya okuma ve düzenleme
 - Dosya veya bağlantı açma
 - Dosya silme
 - PowerShell komutları çalıştırma
 - Uygulama açma ve kapatma
 - Uygulama durumunu kontrol etme
-- Web bağlantılarını tarayıcıda açma
+- Web bağlantılarını açma
 - YouTube üzerinde video arama
-- Seçilen YouTube videosunu açma
 - Model ve sohbet yönetimi
-
-Yeni araçlar Infrastructure katmanına eklenerek harness tarafından kullanılabilir hale getirilebilir.
 
 ### 💬 Kalıcı sohbet geçmişi
 
-DefneAI, PostgreSQL ve Entity Framework Core kullanarak konuşma bağlamını oturumlar arasında koruyabilir.
-
-Saklanabilen veriler:
+PostgreSQL ve Entity Framework Core üzerinden:
 
 - Sohbetler
 - Kullanıcı istekleri
 - Harness cevapları
-- Önerilen çözümler
-- Kullanılan model bilgileri
-- İsteklerin execution durumları
+- Kullanılan modeller
+- Execution sonuçları
 
-Kullanıcı daha önce oluşturduğu bir sohbete geçebilir ve kaldığı yerden devam edebilir.
+saklanabilir ve daha sonra tekrar yüklenebilir.
 
-### 🖥️ Terminal odaklı kullanıcı deneyimi
+### 🖥️ Terminal deneyimi
 
 Spectre.Console tabanlı terminal arayüzü:
 
@@ -131,46 +139,52 @@ Spectre.Console tabanlı terminal arayüzü:
 - Renkli durum mesajları
 - Dinamik terminal boyutlandırma
 - Sohbet geçmişi yönetimi
-- Thinking, Executing, Completed ve Failed durumları
+- Execution durumu takibi
 
 sunar.
 
 ---
 
-## ⚙️ DefneAI nasıl çalışır?
+## ⚙️ Çalışma akışı
 
 ```mermaid
 flowchart TD
     A[Kullanıcı isteği] --> B[İstek analizi]
     B --> C[DefneAI Harness]
-    C --> D[Model ve bağlam seçimi]
-    D --> E[Çözüm önerisi]
-    E --> F{Kullanıcı onayı}
+    C --> D[Model, bağlam ve araç seçimi]
+    D --> E{Çalışma modu}
 
-    F -->|Hayır| G[İşlem iptal edilir]
-    F -->|Evet| H[Onaylanan çözüm uygulanır]
+    E -->|Kontrollü Mod| F[Çözüm önerisini göster]
+    F --> G{Kullanıcı onayı}
+    G -->|Hayır| H[İşlemi durdur]
+    G -->|Evet| I[Çözümü uygula]
 
-    H --> I[Araç ve servis katmanı]
-    H --> J[(Sohbet geçmişi)]
-    I --> K[Sonuç]
-    J --> K
+    E -->|Otonom Mod| I
+
+    I --> J[Araç ve servis katmanı]
+    J --> K[(Sohbet geçmişi)]
+    J --> L[İşlem sonucu]
 ```
 
-1. Kullanıcının isteği terminal üzerinden alınır.
-2. İstek analiz edilir ve ilgili bağlam hazırlanır.
-3. Harness gerekli model ve servisleri bir araya getirir.
-4. Uygulanabilir bir çözüm önerisi oluşturulur.
-5. Çözüm kullanıcıya gösterilir.
-6. Kullanıcıdan açık onay istenir.
-7. Onaylanan çözüm gerekli araçlar kullanılarak uygulanır.
-8. İstek ve cevaplar sohbet geçmişine kaydedilir.
-9. İşlem sonucu kullanıcıya gösterilir.
+### Kontrollü Mod akışı
+
+1. Kullanıcı isteği analiz edilir.
+2. Harness bir çözüm önerisi hazırlar.
+3. Çözüm kullanıcıya gösterilir.
+4. Kullanıcıdan onay beklenir.
+5. Yalnızca onaylanan çözüm uygulanır.
+
+### Otonom Mod akışı
+
+1. Kullanıcı isteği analiz edilir.
+2. Harness gerekli adımları belirler.
+3. Uygun model ve araçlar hazırlanır.
+4. İşlemler ayrıca onay istenmeden uygulanır.
+5. Sonuç kullanıcıya sunulur.
 
 ---
 
 ## 🏗️ Proje mimarisi
-
-DefneAI katmanlı ve genişletilebilir bir mimariye sahiptir:
 
 ```text
 DefneAI/
@@ -182,14 +196,12 @@ DefneAI/
 └── DefneAI.slnx              # .NET solution dosyası
 ```
 
-### Katmanların sorumlulukları
-
 | Katman | Sorumluluk |
 |---|---|
 | `DefneAI` | Dependency injection, terminal arayüzü ve uygulama başlangıcı |
-| `Application` | Prompt analizi, routing, state yönetimi ve servis sözleşmeleri |
+| `Application` | Prompt analizi, routing ve servis sözleşmeleri |
 | `Domain` | Sohbet, prompt, model ve cevap varlıkları |
-| `Infrastructure` | Harness, model sağlayıcıları, araçlar ve execution servisleri |
+| `Infrastructure` | Harness, model sağlayıcıları, araçlar ve execution |
 | `Persistence` | PostgreSQL erişimi ve repository implementasyonları |
 
 ---
@@ -198,78 +210,41 @@ DefneAI/
 
 ### Gereksinimler
 
-Başlamadan önce aşağıdaki araçların kurulu olması gerekir:
-
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Ollama](https://ollama.com/) veya desteklenen başka bir model sağlayıcısı
 - PostgreSQL
 - Git
 - ANSI destekleyen bir terminal
 
-> DefneAI’nin mevcut otomasyon araçları ağırlıklı olarak Windows ve PowerShell ortamını hedeflemektedir.
+> Mevcut otomasyon araçları ağırlıklı olarak Windows ve PowerShell ortamını hedeflemektedir.
 
-### 1. Projeyi klonlayın
+### Projeyi klonlayın
 
 ```bash
 git clone https://github.com/emreucbudak/DefneAI.git
 cd DefneAI
 ```
 
-### 2. Yerel model sağlayıcısını hazırlayın
-
-Ollama kullanılacaksa servis çalıştırılmalıdır:
-
-```bash
-ollama serve
-```
-
-Kullanmak istediğiniz modeli Ollama üzerinden indirebilirsiniz:
-
-```bash
-ollama pull <model-name>
-```
-
-Ollama için varsayılan OpenAI uyumlu endpoint:
-
-```text
-http://localhost:11434/v1
-```
-
-LM Studio kullanılıyorsa varsayılan endpoint:
-
-```text
-http://localhost:1234/v1
-```
-
-### 3. PostgreSQL bağlantısını ayarlayın
-
-PowerShell:
+### PostgreSQL bağlantısını ayarlayın
 
 ```powershell
 $env:DEFNEAI_DB_CONNECTION="Host=localhost;Port=5432;Database=defneai;Username=postgres;Password=your-password"
 ```
 
-Alternatif environment variable:
+Alternatif olarak:
 
 ```powershell
 $env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=defneai;Username=postgres;Password=your-password"
 ```
 
-> Tam harness execution, model yönetimi ve kalıcı sohbet geçmişi için PostgreSQL bağlantısı gereklidir.
-
-### 4. Bağımlılıkları yükleyin
+### Projeyi derleyin
 
 ```bash
 dotnet restore
-```
-
-### 5. Projeyi derleyin
-
-```bash
 dotnet build DefneAI.slnx
 ```
 
-### 6. DefneAI’yi çalıştırın
+### DefneAI’yi çalıştırın
 
 ```bash
 dotnet run --project DefneAI/DefneAI.csproj
@@ -282,34 +257,14 @@ dotnet run --project DefneAI/DefneAI.csproj
 | Komut | Açıklama |
 |---|---|
 | `/komutlar` | Kullanılabilir komutları listeler |
-| `/yenichat` | Yeni bir sohbet oluşturur ve aktif hale getirir |
-| `/sohbetler` | Kayıtlı sohbetleri tarihleriyle listeler |
+| `/yenichat` | Yeni sohbet oluşturur |
+| `/sohbetler` | Kayıtlı sohbetleri listeler |
 | `/chatsec {chatId}` | Belirtilen sohbete geçer |
 | `/chatsil [chatId]` | Belirtilen veya aktif sohbeti siler |
 | `/modelekle ...` | Yeni model yapılandırması ekler |
 | `/modellistele` | Kayıtlı modelleri listeler |
-| `/modelguncelle ...` | Bir model yapılandırmasını günceller |
-| `/modelsil {modelAdı}` | Bir modeli devre dışı bırakır |
-
-### Model ekleme formatı
-
-```text
-/modelekle {modelAdı} {sağlayıcı} {apiKey} {amaç} {temperature} {priority} {açıklama}
-```
-
-Ollama örneği:
-
-```text
-/modelekle model-name ollama ollama default 0.3 1 Yerel model
-```
-
-OpenAI örneği:
-
-```text
-/modelekle model-name openai API_KEY default 0.7 1 Bulut modeli
-```
-
-Daha düşük `priority` değeri, model seçimi sırasında daha yüksek öncelik anlamına gelir.
+| `/modelguncelle ...` | Model yapılandırmasını günceller |
+| `/modelsil {modelAdı}` | Modeli devre dışı bırakır |
 
 ---
 
@@ -323,45 +278,33 @@ Daha düşük `priority` değeri, model seçimi sırasında daha yüksek önceli
 | Entity Framework Core | Veri erişimi |
 | PostgreSQL / Npgsql | Kalıcı veri depolama |
 | Spectre.Console | Terminal arayüzü |
-| FluentValidation | Model yapılandırması doğrulama |
-| YoutubeExplode | YouTube arama entegrasyonu |
+| FluentValidation | Yapılandırma doğrulama |
+| YoutubeExplode | YouTube entegrasyonu |
 | AngleSharp | Web içeriği işleme |
 | MemoryCache | Dinamik kernel önbellekleme |
 
 ---
 
-## 🔐 Güvenlik yaklaşımı
+## 🔐 Güvenlik
 
-DefneAI, durum değiştirebilecek işlemlerden önce kullanıcı onayı ister.
+Çalışma modu, kullanılacak ortama göre seçilmelidir.
 
-Proje güçlü otomasyon araçları içerdiğinden yalnızca güvenilir ortamlarda çalıştırılmalıdır:
+- **Kontrollü Mod**, hassas projeler ve önceden incelenmesi gereken işlemler için uygundur.
+- **Otonom Mod**, güvenilir çalışma alanlarında ve kapsamı açıkça belirlenmiş görevlerde kullanılmalıdır.
 
-- PowerShell komutu çalıştırma
-- Dosya içeriği değiştirme
+Otonom Mod aşağıdaki işlemleri ayrıca izin istemeden gerçekleştirebilir:
+
+- Terminal komutu çalıştırma
+- Dosya oluşturma veya değiştirme
 - Dosya silme
-- Uygulama açma ve kapatma
+- Uygulama açma veya kapatma
 - Harici bağlantıları açma
 
-API anahtarlarını kaynak koduna veya Git geçmişine eklemeyin. Geliştirme sırasında sınırlı yetkiye sahip anahtarlar ve izole test ortamları kullanın.
-
----
-
-## 🧭 Tasarım prensipleri
-
-- **Approval first:** Kullanıcı onayı olmadan çözüm uygulanmaz.
-- **Provider independence:** Tek bir model sağlayıcısına bağımlı kalınmaz.
-- **Context awareness:** Sohbet geçmişi çalışma akışına dahil edilir.
-- **Layered architecture:** Domain ve uygulama mantığı altyapıdan ayrılır.
-- **Extensible tooling:** Yeni araçlar kolayca sisteme eklenebilir.
-- **Configurable models:** Model ayarları dinamik olarak yönetilebilir.
-- **Persistent history:** Konuşma geçmişi oturumlar arasında korunabilir.
-- **Controlled execution:** Harness yalnızca onaylanan çözümü uygular.
+API anahtarlarını kaynak koduna veya Git geçmişine eklemeyin. Otonom Mod’u kullanmadan önce çalışma dizinini ve verilen görevin kapsamını kontrol edin.
 
 ---
 
 ## 🤝 Katkıda bulunma
-
-Katkılar, hata bildirimleri ve geliştirme önerileri memnuniyetle karşılanır.
 
 1. Projeyi fork edin.
 2. Yeni bir branch oluşturun:
@@ -390,6 +333,6 @@ git push origin feature/yeni-ozellik
 
 ### 🌿 DefneAI
 
-**Geliştiriciler için izin kontrollü, genişletilebilir AI harness platformu.**
+**Kontrolün sizde veya harness’ta olduğu geliştirici odaklı AI platformu.**
 
 </div>
