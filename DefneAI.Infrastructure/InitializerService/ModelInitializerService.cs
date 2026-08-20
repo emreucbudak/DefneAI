@@ -1,84 +1,85 @@
-﻿using DefneAI.Application.InitializerService;
-using DefneAI.Application.KernelFactory;
+using DefneAI.Application.ChatClientFactory;
+using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 
-namespace DefneAI.Infrastructure.InitializerService
+namespace DefneAI.Infrastructure.InitializerService;
+
+public sealed class ModelInitializerService(
+    IModelRepository repo,
+    IChatClientFactory chatClientFactory) : IModelInitializerService
 {
-    public sealed class ModelInitializerService(IModelRepository repo, IKernelFactory kernelFactory) : IModelInitializerService
+    public async Task<string> InitializeModelAsync()
     {
-
-        public async Task<string> InitializeModelAsync()
-        {
-            try
-            {
-                AIModelProvider[] models = await GetActiveModelsAsync();
-                kernelFactory.CreateKernel(models);
-                return $"{models.Length} model çalışmaya hazır.";
-            }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
-        }
-
-        public async Task<Kernel> GetKernelAsync()
-        {
-            Kernel? cachedKernel = kernelFactory.GetCachedKernel();
-            if (cachedKernel is not null)
-            {
-                return cachedKernel;
-            }
-
-            AIModelProvider[] models = await GetActiveModelsAsync();
-            return kernelFactory.CreateKernel(models);
-        }
-
-        public async Task<IList<ChatCompletionAgent>> GetChatCompletionAgentsAsync(AITaskType taskType)
+        try
         {
             AIModelProvider[] models = await GetActiveModelsAsync();
-            AIModelProvider[] matchingModels = models
-                .Where(model => model.ModelPurpose == taskType)
-                .ToArray();
-            Kernel kernel = kernelFactory.GetCachedKernel() ?? kernelFactory.CreateKernel(models);
-            List<ChatCompletionAgent> modelAgents = new(matchingModels.Length);
+            chatClientFactory.CreateChatClients(models);
+            return $"{models.Length} model çalışmaya hazır.";
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
 
-            foreach (AIModelProvider model in matchingModels)
+    public async Task<IList<HarnessAgent>> GetHarnessAgentsAsync(
+        AITaskType taskType)
+    {
+        AIModelProvider[] models = await GetActiveModelsAsync();
+        AIModelProvider[] matchingModels = models
+            .Where(model => model.ModelPurpose == taskType)
+            .ToArray();
+        IReadOnlyDictionary<string, IChatClient> chatClients =
+            chatClientFactory.GetCachedChatClients() ??
+            chatClientFactory.CreateChatClients(models);
+        List<HarnessAgent> modelAgents = new(matchingModels.Length);
+
+        foreach (AIModelProvider model in matchingModels)
+        {
+            if (!chatClients.TryGetValue(model.ServiceId, out IChatClient? chatClient))
             {
-                OpenAIPromptExecutionSettings prompt = new()
-                {
-                    ServiceId = model.ServiceId,
-                    Temperature = model.Temperature,
-                    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-                };
+                throw new InvalidOperationException(
+                    $"{model.ServiceId} için IChatClient bulunamadı.");
+            }
 
-                ChatCompletionAgent modelAgent = new()
+            bool enableWebSearch =
+                model.ProviderType == AIProviderType.Gemini &&
+                model.ModelPurpose == AITaskType.WebSearch;
+            HarnessAgent modelAgent = new(
+                chatClient,
+                new HarnessAgentOptions
                 {
+                    Id = model.ServiceId,
                     Name = model.ModelName,
                     Description = model.ModelDescription,
-                    Kernel = kernel,
-                    Arguments = new KernelArguments(prompt),
-                    Instructions = model.ModelInstructions
-                };
+                    HarnessInstructions = string.IsNullOrWhiteSpace(model.ModelSystemPrompt)
+                        ? HarnessAgent.DefaultInstructions
+                        : model.ModelSystemPrompt,
+                    ChatOptions = new ChatOptions
+                    {
+                        Instructions = model.ModelInstructions,
+                        Temperature = (float)model.Temperature
+                    },
+                    DisableWebSearch = !enableWebSearch
+                });
 
-                modelAgents.Add(modelAgent);
-            }
-
-            return modelAgents;
+            modelAgents.Add(modelAgent);
         }
 
-        private async Task<AIModelProvider[]> GetActiveModelsAsync()
-        {
-            IEnumerable<AIModelProvider> models = await repo.GetAllModelProviders();
-            return models
-                .Where(model => !model.IsRemoved)
-                .OrderBy(model => model.PriorityNumber)
-                .ThenBy(model => model.Id)
-                .ToArray();
-        }
+        return modelAgents;
+    }
+
+    private async Task<AIModelProvider[]> GetActiveModelsAsync()
+    {
+        IEnumerable<AIModelProvider> models = await repo.GetAllModelProviders();
+        return models
+            .Where(model => !model.IsRemoved)
+            .OrderBy(model => model.PriorityNumber)
+            .ThenBy(model => model.Id)
+            .ToArray();
     }
 }

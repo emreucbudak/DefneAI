@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="Microsoft.Agents.AI.Harness" Version="1.18.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Abstractions" Version="1.80.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.80.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.80.0" />

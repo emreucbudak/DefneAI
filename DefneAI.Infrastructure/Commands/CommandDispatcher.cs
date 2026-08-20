@@ -85,8 +85,8 @@ public sealed class CommandDispatcher(
             "/chatsec {chatId} - Eski bir sohbete geçer",
             "/chatsil [chatId] - Belirtilen veya aktif sohbeti siler",
             "/modellistele - Kayıtlı modelleri listeler",
-            "/modelguncelle {modelAdı} {argümanAdı} {argümanDeğeri} - Model alanını günceller",
-            "/modelsil {modelAdı} - Modeli pasif duruma getirir"
+            "/modelguncelle {modelAdı/serviceId} {argümanAdı} {argümanDeğeri} - Model alanını günceller",
+            "/modelsil {modelAdı/serviceId} - Modeli pasif duruma getirir"
         });
     }
 

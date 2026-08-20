@@ -5,8 +5,11 @@ using DefneAI.Application.InitializerService;
 using DefneAI.Application.Repository;
 using DefneAI.Domain.Enums;
 using DefneAI.Domain.Models;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Spectre.Console;
 
 namespace DefneAI.Infrastructure.ExecutionService;
@@ -101,44 +104,69 @@ public sealed class ExecutionService(
         AITaskType intent = prompt.PromptIntent
             ?? throw new InvalidOperationException(
                 "Prompt intent analysis produced no result.");
-        IList<ChatCompletionAgent> agents =
-            await modelInitializerService.GetChatCompletionAgentsAsync(intent);
+        IList<HarnessAgent> agents =
+            await modelInitializerService.GetHarnessAgentsAsync(intent);
         if (agents.Count == 0)
         {
             throw new InvalidOperationException(
                 "Çalıştırılabilir bir AI modeli bulunamadı.");
         }
 
-        ChatCompletionAgent agent = agents[0];
-        StringBuilder responseBuilder = new();
+        List<ChatMessage> messages = chatHistoryThread.ChatHistory
+            .Select(message => message.ToChatMessage())
+            .ToList();
+        messages.Add(new ChatMessage(ChatRole.User, executionPrompt));
+        List<Exception> failures = new(agents.Count);
 
-        await foreach (AgentResponseItem<ChatMessageContent> response in agent.InvokeAsync(
-            executionPrompt,
-            thread: chatHistoryThread,
-            cancellationToken: cancellationToken))
+        foreach (HarnessAgent agent in agents)
         {
-            responseBuilder.Append(response.Message.Content);
-        }
+            StringBuilder responseBuilder = new();
 
-        string result = responseBuilder.ToString().Trim();
-        if (string.IsNullOrWhiteSpace(result))
-        {
-            throw new InvalidOperationException(
-                "AI modeli bir sonuç üretmedi.");
-        }
-
-        await aiResponseRepository.AddAsync(
-            new AIResponse
+            try
             {
-                ChatId = prompt.ChatId,
-                PromptId = prompt.Id,
-                Content = result,
-                ModelName = agent.Name ?? agent.Id ?? "Unknown",
-                IsProposal = isProposal
-            },
-            cancellationToken);
+                await foreach (AgentResponseUpdate response in agent.RunStreamingAsync(
+                    messages,
+                    session: null,
+                    cancellationToken: cancellationToken))
+                {
+                    responseBuilder.Append(response.Text);
+                }
+            }
+            catch (Exception ex) when (
+                !cancellationToken.IsCancellationRequested &&
+                responseBuilder.Length == 0)
+            {
+                failures.Add(new InvalidOperationException(
+                    $"{agent.Id ?? agent.Name ?? "Unknown"} çalıştırılamadı.",
+                    ex));
+                continue;
+            }
 
-        return result;
+            string result = responseBuilder.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(result))
+            {
+                failures.Add(new InvalidOperationException(
+                    $"{agent.Id ?? agent.Name ?? "Unknown"} bir sonuç üretmedi."));
+                continue;
+            }
+
+            await aiResponseRepository.AddAsync(
+                new AIResponse
+                {
+                    ChatId = prompt.ChatId,
+                    PromptId = prompt.Id,
+                    Content = result,
+                    ModelName = agent.Id ?? agent.Name ?? "Unknown",
+                    IsProposal = isProposal
+                },
+                cancellationToken);
+
+            return result;
+        }
+
+        throw new AggregateException(
+            "Öncelik sırasındaki AI hesaplarının hiçbiri yanıt üretemedi.",
+            failures);
     }
 
     private static void Validate(
